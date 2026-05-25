@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { UserRolesEnum } from '@utils/enum';
 import { Auth } from '@decorators/authDecorator';

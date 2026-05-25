@@ -20,7 +20,7 @@ import { StudentModule } from './modules/student/student.module';
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get('DATABASE_URL'),
+        uri: configService.get<string>('DB_URL'),
       }),
     }),
 
