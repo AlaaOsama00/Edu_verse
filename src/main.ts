@@ -14,14 +14,12 @@ async function bootstrap() {
 );
 //app.useGlobalFilters(new AllExceptionsFilter());
 
- const configService = app.get(ConfigService)
- const port = configService.get<number>('PORT') || 3000;
 
   app.use(cors({
    origin:true, 
     credentials: true, // allow cookies to be sent with requests
   }))
+ const port = Number(process.env.PORT || 3001);
+ await app.listen(port, '0.0.0.0');}
 
-  await app.listen(port);
-}
  void bootstrap();
