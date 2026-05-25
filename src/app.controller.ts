@@ -1,7 +1,12 @@
-import { Controller} from '@nestjs/common';
+import { Get } from '@nestjs/common';
 import { AppService } from './app.service';
 
-@Controller('auth')
 export class AppController {
   constructor(private readonly appService: AppService) {}
+  
+  @Get() //act as api [method=>GET, url=>'/']
+  getHello(): string {
+   //return 'hi from nestjs';
+   return this.appService.getHello();
+  }
 }
