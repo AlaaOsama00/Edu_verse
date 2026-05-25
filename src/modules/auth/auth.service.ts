@@ -66,18 +66,18 @@ export class AuthService {
 
    if (user.status === StatusEnum.INACTIVE) {
       const otp = generateOTP(6);
-      const emailSent = await sendEmail({
-      from:'"Eduverse System" <no-reply@eduverse.com>',
+
+      sendEmail({
       to: user.email,
       subject: 'Login OTP Verification',
       html: `<h1>Hello ${user.fullName}</h1>
              <p>Your OTP is: <strong>${otp}</strong></p>
              <p>This OTP will expire in 10 minutes.</p>`,
+    }).catch((error) => {
+      throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
     });
 
-    if (!emailSent) {
-      throw new InternalServerErrorException('Failed to send email, please try again');
-    }
+   
    await this.userRepository.update({
         filter: { email: user.email },
         update: {
@@ -129,18 +129,16 @@ export class AuthService {
 
     const otp = generateOTP(6)
 
-    const emailSent = await sendEmail({
-      to: email,
-      from:'"Eduverse System" <no-reply@eduverse.com>',
-      subject: 'New OTP Request',
-      html: `<h1>Hello ${user.fullName}</h1>
-             <p>Your new OTP is: <strong>${otp}</strong></p>
-             <p>This OTP will expire in 10 minutes.</p>`
-    })
+   sendEmail({
+       to: user.email,
+       subject: 'Reset Password',
+       html: `<h1>Hello ${user.fullName}</h1> 
+                  <p>Your reset password OTP is: <strong>${otp}</strong></p>
+                  <p>This OTP will expire in 10 minutes.</p>`
+     }).catch((error) => {
+       throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
+     });
 
-    if (!emailSent) {
-      throw new InternalServerErrorException('Failed to send email, please try again')
-    }
 
     await this.userRepository.update({
       filter: { email },
@@ -176,18 +174,15 @@ export class AuthService {
 
      const otp = generateOTP(6)
     
-     const emailSent = await sendEmail({
+      sendEmail({
        to: user.email,
-       from: '"Eduverse System" <no-reply@eduverse.com>',
        subject: 'Reset Password',
        html: `<h1>Hello ${user.fullName}</h1> 
                   <p>Your reset password OTP is: <strong>${otp}</strong></p>
                   <p>This OTP will expire in 10 minutes.</p>`
-     })
-
-     if (!emailSent) {
-       throw new InternalServerErrorException('Failed to send email, please try again')
-     }
+     }).catch((error) => {
+       throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
+     });
 
      await this.userRepository.update({
        filter: { email: email },
