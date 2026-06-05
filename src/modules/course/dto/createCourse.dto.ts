@@ -1,5 +1,6 @@
+import { Optional } from '@nestjs/common';
 import { AcademicYearEnum, SemesterEnum } from '@utils/enum';
-import { IsString, IsNumber, IsEnum, Min, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsEnum, Min, IsNotEmpty, IsBoolean } from 'class-validator';
 
 export class CreateCourseDto {
   
@@ -27,6 +28,12 @@ export class CreateCourseDto {
   @IsEnum(SemesterEnum)
   semester: SemesterEnum;
   
+  @IsNotEmpty()
+  @IsString()
+  professorId: string; 
+
+  @Optional()
+  @IsBoolean()
+  isTraining: boolean; 
 
 }
-

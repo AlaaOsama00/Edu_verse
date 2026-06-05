@@ -1,18 +1,36 @@
-export enum StatusEnum {
+export enum ActivationEnum {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
-
-
-export enum StudentStatusEnum {
-  ENROLLED = 'ENROLLED',
-  DROPPED = 'DROPPED',
+// ====== حالة التسليم (جديد) ======
+export enum SubmissionStatusEnum {
+  NOT_SUBMITTED = 'not_submitted', // الحالة الافتراضية: الطالب لسه ضغط على زرار التسليم ولا رفع ملف
+  SUBMITTED = 'submitted',         // الطالب رفع الملف/الواجب قبل ما موعد التسليم يقفل
+  MISSING = 'missing',             // الموعد قفل، والطالب مفروش حاجة (غالباً بيتحطت أوتوماتيك لما الدكتور يضغط "Close Deadline")
 }
+export enum GradeStatusEnum {
+  PENDING = 'pending',       // الحالة الافتراضية: الدكتور لسه فاتح الـ Gradebook ولا صحح الملف ده
+  GRADED = 'graded',         // الدكتور فتح الملف، قرأه، وكتب الدرجة (سواء 10 من 10 أو 0 من 10)
+}
+
+export enum EnrollmentStatusEnum {
+  ACTIVE = 'active',
+  COMPLETED = 'closed',
+}
+
+export enum AssessmentTypeEnum {
+  ASSIGNMENT1 = 'assignment1',//20
+  ASSIGNMENT2 = 'assignment2',
+  MIDTERM = 'midterm',
+  FINAL = 'final',
+  PRACTICAL = 'practical',
+}
+
 export enum AcademicYearEnum {
-  YEAR_1 = 'YEAR_1',
-  YEAR_2 = 'YEAR_2',
-  YEAR_3 = 'YEAR_3',
-  YEAR_4 = 'YEAR_4',
+  YEAR_1 = '1',
+  YEAR_2 = '2',
+  YEAR_3 = '3',
+  YEAR_4 = '4',
 }
 
 export enum UserRolesEnum {
@@ -22,7 +40,7 @@ export enum UserRolesEnum {
 }
 
 export enum GradeEnum {
-    A_PLUS = 'A+',
+  A_PLUS = 'A+',
   A = 'A',
   A_MINUS = 'A-',
   B_PLUS = 'B+',
@@ -37,21 +55,16 @@ export enum GradeEnum {
   F = 'F',
 }
 
-export enum GenderEnum {
-  MALE = 'Male',
-  FEMALE = 'Female' 
-}
-
-export enum SummerReason {
+export enum SummerReasonEnum {
   NONE = 'NONE',                 // لو أخدها في فصل عادي
   FAILURE = 'FAILURE',           // لو رسبهاوجاي ياخدها في الصيف (هيتطبق عليه الخصم)
   NON_REGISTRATION = 'NON_REGISTRATION', // لو ما سجلش فيها أصلاً (مفيش خصم)
 }
 
 export enum SemesterEnum {
-  First  = 'FIRST',
-  Second = 'SECOND',
-  Summer = 'SUMMER',
+  FALL = 'FALL',
+  SPRING = 'SPRING',
+  SUMMER = 'SUMMER',
 }
  
 export enum TrackEnum {
@@ -65,9 +78,9 @@ export enum TrackEnum {
   NETWORK = 'NETWORK',
 }
 
-export enum GroupRoleEnum {
-  GroupAdmin = 'GROUP_ADMIN',
-  Member     = 'MEMBER',
-}
+
+export enum StudentStatusEnum {
+  ENROLLED = 'ENROLLED',
+  DROPPED = 'DROPPED',
+}//to do in 4 th year term  2
   
-//https://www.pngall.com/wp-content/uploads/5/Profile-PNG-High-Quality-Image.png  Prfile Picture URL

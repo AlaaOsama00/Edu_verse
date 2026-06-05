@@ -7,9 +7,7 @@ import {
   Types,
   UpdateQuery,
   FilterQuery,
-  ObjectId,
 } from 'mongoose'
-import { filter } from 'rxjs'
 
 
 export abstract class AbstractRepository<T> {
@@ -101,18 +99,17 @@ export abstract class AbstractRepository<T> {
     return await this.model.findOneAndDelete(filter, options)
   }
 
-  async findOneAndUpdate({
-    filter={},
-    update={},
-    options = {},
+async findOneAndUpdate({
+    filter, 
+    update, 
+    options = {}, // الـ options عادي تكون فاضية
   }: {
-    filter: FilterQuery<T> 
-    update: UpdateQuery<T>
-    options?: QueryOptions<T>
+    filter: FilterQuery<T>;
+    update: UpdateQuery<T>;
+    options?: QueryOptions<T>;
   }) {
-    return await this.model.findOneAndUpdate(filter, update, options)
+    return await this.model.findOneAndUpdate(filter, update, options);
   }
-
   async deleteOne({
     filter={},
     options = {},
@@ -132,6 +129,16 @@ export abstract class AbstractRepository<T> {
   }) {
     return await this.model.deleteMany(filter, options)
   }
+  
+  async count(filter: FilterQuery<T> = {}): Promise<number> {
+    return this.model.countDocuments(filter).exec();
+  }
 
+  async updateMany(
+    filter: FilterQuery<T>,
+    update: UpdateQuery<T>,
+  ): Promise<any> {
+    return this.model.updateMany(filter, update);
+  }
 }
 

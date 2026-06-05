@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AbstractRepository } from '@models/abstract.repository';
-import { Course } from '@models/course/course.schema';
+import {  Course } from '@models/index';
 import { AcademicYearEnum, SemesterEnum } from '@utils/enum';
+import { AbstractRepository } from '@models/abstract.repository';
 
 @Injectable()
 export class CourseRepository extends AbstractRepository<Course> {
@@ -14,8 +14,7 @@ export class CourseRepository extends AbstractRepository<Course> {
   {
     super(courseModel);
   }
-  // جيب كل مواد سنة معينة في فصل معين 
-  // (الاستخدام: الطالب عايز يعرف الـ 5 مواد المفروض يسجلها في الـ First Semester)
+  // جيب كل مواد سنة معينة في فصل معين   
   async findByYearAndSemester(year: AcademicYearEnum,semester: SemesterEnum,): Promise<Course[]> {
     return this.courseModel.find({ targetYear: year, targetSemester: semester }).exec();
    }
@@ -25,10 +24,10 @@ export class CourseRepository extends AbstractRepository<Course> {
     return newCourse.save();
   }
 
-
  async findCoursesByIds(ids: Types.ObjectId[]): Promise<Course[]> {
     return this.courseModel.find({ _id: { $in: ids } }).exec();
   }
+
   async findAllWithPagination(skip: number, limit: number, filter: any = {}): Promise<Course[]> {
     return this.model.find(filter)
       .sort({ createdAt: -1 }) // ترتيب من الأحدث للأقدم
@@ -36,7 +35,6 @@ export class CourseRepository extends AbstractRepository<Course> {
       .limit(limit) // خد عدد معين (مثلاً خد 10)
       .exec();
   }
-
   // جيب العدد الإجمالي (عشان نعمل أزرار الصفحات)
   async countTotal(filter: any = {}): Promise<number> {
     return this.model.countDocuments(filter).exec();

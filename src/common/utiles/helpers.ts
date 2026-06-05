@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcrypt';
 import { customAlphabet } from "nanoid";
 import { IMarks, IGradeMapping ,IGradeHours} from '@interfaces/index';
-import { GradeEnum, SummerReason } from '@utils/enum';
+import { GradeEnum, SummerReasonEnum } from '@utils/enum';
 
 export const generateOTP = (length: number = 6): string => {
  const otp =customAlphabet('0123456789', length)()
@@ -39,23 +39,25 @@ const GRADE_SCALE: IGradeMapping[] = [
  * دالة جمع الدرجات
  */
 export function calculateTotalScore(marks: IMarks): number {
-  const { midterm, final, practical, project } = marks;
+  const { midterm, final, practical, assignment1, assignment2 } = marks;
   if (midterm < 0 || midterm > 20) {
     throw new Error(`Invalid midterm score: ${midterm}. It must be between 0 and 20.`);
   }
   
-  if (final < 0 || final > 30) {
-    throw new Error(`Invalid final score: ${final}. It must be between 0 and 30.`);
+  if (final < 0 || final > 40) {
+    throw new Error(`Invalid final score: ${final}. It must be between 0 and 40.`);
   }
   
   if (practical < 0 || practical > 20) {
     throw new Error(`Invalid practical score: ${practical}. It must be between 0 and 20.`);
   }
   
-  if (project < 0 || project > 30) {
-    throw new Error(`Invalid project score: ${project}. It must be between 0 and 30.`);
+  if (assignment1 < 0 || assignment1 > 10 || assignment2 < 0 || assignment2 > 10) {
+    throw new Error(`Invalid assignment score. It must be between 0 and 10.`);
   }
-  return midterm + final + practical + project;
+
+  
+  return midterm + final + practical + assignment1 + assignment2;
 }
 
 /**
@@ -69,10 +71,10 @@ export function mapScoreToGrade(score: number): GradeEnum {
 }
 
 
-export function applySummerPenalty(earnedGrade: GradeEnum, reason: SummerReason,): GradeEnum {
+export function applySummerPenalty(earnedGrade: GradeEnum, reason: SummerReasonEnum,): GradeEnum {
 
   const GRADES_ARRAY = Object.values(GradeEnum);
-  if (reason === SummerReason.FAILURE) {
+  if (reason === SummerReasonEnum.FAILURE) {
     const currentIdx = GRADES_ARRAY.indexOf(earnedGrade);
     
     const nextIdx = Math.min(currentIdx + 3, GRADES_ARRAY.length - 1);

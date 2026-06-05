@@ -3,35 +3,65 @@ import { IMarks } from '@interfaces/IMarks';
 import { Types } from 'mongoose';
 import { AcademicYearEnum, SemesterEnum } from '@utils/enum';
 import type { IPagination } from '@decorators/pagination.decorator';
-import { CourseRepository } from '@models/index';
+import { CourseRepository, StudyPlanRepository } from '@models/index';
 import { CreateCourseDto } from './dto/createCourse.dto';
 import { UpdateCourseDto } from './dto/updateCourse.dto';
 
 @Injectable()
 export class CourseService {
 
-  constructor(private readonly courseRepo: CourseRepository) { }
+  constructor(
+    private readonly courseRepo: CourseRepository,
+    private readonly studyPlanRepository: StudyPlanRepository
+  ) { }
+
 
   async createCourse(dto: CreateCourseDto) {
+
+    if (dto.isTraining && dto.semester != SemesterEnum.SUMMER)
+      throw new NotFoundException('Training courses can only be offered in the summer semester');
+
     const marksDistribution: IMarks = {
       midterm: 20,
-      final: 30,
+      final: 40,
       practical: 20,
-      project: 30,
+      assignment1: 10,
+      assignment2: 10,
     };
 
-    return this.courseRepo.create({
+    const newCourse = await this.courseRepo.create({
       name: dto.name,
       code: dto.code,
-      academicYear: dto.academicYear,
       description: dto.description,
-      semester: dto.semester,
       creditHours: dto.creditHours,
+      isTraining: dto.isTraining || false,
       marksDistribution: marksDistribution,
     });
+
+    await this.studyPlanRepository.findOneAndUpdate({
+      filter: {
+        academicYear: dto.academicYear,
+        semester: dto.semester
+      },
+      update: {
+        $addToSet: {
+          courses: {
+            courseId: newCourse._id,
+            professorId: new Types.ObjectId(dto.professorId),
+            //ابوس ايدك ما تغيريها لستريج غيريها في اي حته الا هنا 
+          },
+        },
+      },
+      options: {
+        upsert: true,
+        new: true
+      }
+    });
+
+    return { message: 'Course created successfully' };
   }
 
-     async getAllCourses(pagination: IPagination, search?: string) {
+  async getAllCourses(pagination: IPagination, search?: string) {
     const { skip, limit } = pagination;
 
     const filter: any = {};
@@ -58,7 +88,7 @@ export class CourseService {
       }
     };
   }
-  
+
   async findCourseById(id: Types.ObjectId) { //To Do Profile
     const course = await this.courseRepo.findOne({ filter: { _id: id } });
     if (!course) throw new NotFoundException('Course not found');
@@ -78,6 +108,8 @@ export class CourseService {
     return { message: 'Course deleted successfully' };
   }
 
+
+  //***************************************************** */
   async getCoursesByYearAndSemester(year: AcademicYearEnum, semester: SemesterEnum) {
     return this.courseRepo.findByYearAndSemester(year, semester);
   }

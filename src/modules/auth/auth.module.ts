@@ -3,12 +3,10 @@ import { UserRepository } from '@models/user/user.repository';
 import { Module } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
-import { StudentRepository } from '@models/student/student.repository';
 import { User, UserSchema } from '@models/user/user.schema';
 import { JwtService } from "@nestjs/jwt";
 import { MongooseModule } from "@nestjs/mongoose";
-import { Student, StudentSchema, Course, CourseSchema, CourseAssessment, CourseAssessmentSchema, CourseRepository, CourseAssessmentRepository } from '@models/index';
-import { StudentService } from '../student/student.service';
+import {Course, CourseSchema} from '@models/index';
 
 
 
@@ -18,15 +16,14 @@ import { StudentService } from '../student/student.service';
         MongooseModule.forFeature([{
              name: User.name, schema: UserSchema
         },{
-             name: Student.name, schema: StudentSchema
-        },{
              name: Course.name, schema: CourseSchema
-        },{
-             name: CourseAssessment.name, schema: CourseAssessmentSchema
-        }])      
+        }]) 
+         
     ],
     controllers: [AuthController],
-    providers: [StudentRepository,CourseRepository,AuthService,CourseAssessmentRepository,UserRepository,TokenService,JwtService,StudentService]
+    providers: [AuthService,UserRepository,TokenService,JwtService],
+    exports: [AuthService,JwtService] // لو موديل تاني عاوز يستخدمهم
+    
 })
 
 export class AuthModule {}

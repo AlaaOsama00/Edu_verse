@@ -1,84 +1,142 @@
 import { UserRepository } from '@models/user/user.repository';
-import { Injectable,InternalServerErrorException, UnauthorizedException, NotFoundException, BadRequestException} from '@nestjs/common';
+import { Injectable, InternalServerErrorException, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { compare, generateOTP, hashPassword } from 'src/common/utiles/helpers';
 import { sendEmail } from 'src/common/utiles/email.utils';
 import { TokenService } from 'src/common/service/token.service';
 import { Types } from 'mongoose';
-import { StatusEnum, UserRolesEnum } from '@utils/enum';
-import { StudentService } from '../student/student.service';
+import { ActivationEnum, UserRolesEnum } from '@utils/enum';
 import { CreateUserDto, SignInDTO } from './dto/authDto';
+import { UpdateUserDto } from './dto/updateUserDto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly tokenService: TokenService,
-    private readonly studentService: StudentService
-  ) {}
+  ) { }
 
-  async createUser(createUserDto: CreateUserDto ) {
+  async createUser(createUserDto: CreateUserDto) {
 
-  
-     if(createUserDto.role === UserRolesEnum.ADMIN){
-        const existingAdmin = await this.userRepository.findOne({ filter: { role: UserRolesEnum.ADMIN } });
-        if (existingAdmin) {
-          throw new BadRequestException('An admin account already exists. Only one admin is allowed.');
-        }
-        return this.userRepository.create({
-          fullName: createUserDto.fullName,
-          email: createUserDto.email,
-          password: await hashPassword(createUserDto.password),
-          role: createUserDto.role
-        });
+    const existingUser = await this.userRepository.findOne({ filter: { email: createUserDto.email } });
+    if (existingUser) { throw new BadRequestException('This email already exists.'); }
+
+    if (createUserDto.role === UserRolesEnum.STUDENT) {
+
+      if (!createUserDto.currentYear || !createUserDto.academicId) { throw new BadRequestException('currentYear and academicId are required '); }
+
+      const existingStudentId = await this.userRepository.findOne({ filter: { academicId: createUserDto.academicId } });
+
+      if (existingStudentId) {
+        throw new BadRequestException('This academicId is already in use.');
       }
-
-     switch (createUserDto.role) {
-      
-      case UserRolesEnum.STUDENT:
-         if (!createUserDto.currentYear|| !createUserDto.academicId) {
-          throw new BadRequestException('currentYear and academicId are required ');
-        }
-        return this.studentService.createStudent({
-          fullName: createUserDto.fullName,
-          email: createUserDto.email,
-          password: createUserDto.password, // الباسورد هنا مشفر جاهز من الـ Auth Service
-          academicId: createUserDto.academicId,
-          currentYear: createUserDto.currentYear, // <--- بدل الـ 1 الثابت، حطينا المتغير اللي جاي من الـ DTO
-        });
-
-      case UserRolesEnum.PROFESSOR:
-        throw new BadRequestException('Professor registration is not implemented yet.');
- 
-      default:
-        throw new BadRequestException('Invalid role selected.');
     }
 
+    else {
+      if (createUserDto.academicId || createUserDto.currentYear) {
+        throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
+      }
+    }
+    const hashedPassword = await hashPassword(createUserDto.password);
+    const userData: any = {
+      fullName: createUserDto.fullName,
+      email: createUserDto.email,
+      password: hashedPassword,
+      role: createUserDto.role,
+      ...(createUserDto.role === UserRolesEnum.STUDENT && {
+        academicId: createUserDto.academicId,
+        currentYear: createUserDto.currentYear,
+      })
+    };
 
+    const user = await this.userRepository.create(userData);
+
+    return {
+      message: `${user.role} account created successfully`,
+      data: {
+        userId: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        ...(user.role === UserRolesEnum.STUDENT && {
+          academicId: user.academicId,
+          currentYear: user.currentYear,
+        }),
+      }
+    };
+
+  }
+
+  async updateUserData(id: string, updateUserDto: UpdateUserDto) {
+    // أولاً: نتأكد إن الطالب موجود
+    const user = await this.userRepository.findOne({
+      filter: { userId: id }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { academicId, currentYear, fullName, email } = updateUserDto;
+
+    // تحديث بيانات الـ Student Profile
+    if (academicId || currentYear) {
+      const userData: any = {};
+      if (academicId) userData.academicId = academicId;
+      if (currentYear) userData.currentYear = currentYear;
+      if (fullName) userData.fullName = fullName;
+      if (email) {
+        userData.email = email;
+        const existingUser = await this.userRepository.findByEmail(email);
+        if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+          throw new BadRequestException('This email is already used by another user.');
+        }
+      }
+      await this.userRepository.update({ filter: { _id: id }, update: userData });
+    }
+
+    return {
+      message: 'User updated successfully',
+    };
+  }
+
+  async deleteUserById(id: string) {
+    const user = await this.userRepository.findOne({ filter: { userId: id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // ثالثاً: نمسح حساب الـ User المرتبط بيه
+    await this.userRepository.deleteOne({ filter: { _id: user._id } });
+
+    return {
+      message: 'User deleted successfully'
+    };
   }
 
   async signIn(signInDTO: SignInDTO) {
 
-  const user = await this.userRepository.findByEmail(signInDTO.email);
-  if (!user || !(await compare(signInDTO.password, user.password))) {
-  
-    throw new UnauthorizedException('Invalid credentials');
-  }
+    const user = await this.userRepository.findByEmail(signInDTO.email);
 
-   if (user.status === StatusEnum.INACTIVE) {
+    if (!user || !(await compare(signInDTO.password, user.password))) {
+
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status === ActivationEnum.INACTIVE) {
       const otp = generateOTP(6);
 
       sendEmail({
-      to: user.email,
-      subject: 'Login OTP Verification',
-      html: `<h1>Hello ${user.fullName}</h1>
+        to: user.email,
+        subject: 'Login OTP Verification',
+        html: `<h1>Hello ${user.fullName}</h1>
              <p>Your OTP is: <strong>${otp}</strong></p>
              <p>This OTP will expire in 10 minutes.</p>`,
-    }).catch((error) => {
-      throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
-    });
+      }).catch((error) => {
+        throw new InternalServerErrorException(error, 'Failed to send OTP email, please try again');
+      });
 
-   
-   await this.userRepository.update({
+
+      await this.userRepository.update({
         filter: { email: user.email },
         update: {
           emailOtp: {
@@ -87,11 +145,28 @@ export class AuthService {
           }
         }
       })
-    throw new UnauthorizedException('You should confirm your email first, new OTP sent to your email')
+      throw new UnauthorizedException('You should confirm your email first, new OTP sent to your email')
 
-   }
- 
-  return this.tokenService.generateAuthTokens(user); 
+    }
+
+    const baseResponse = {
+      fullName: user.fullName,
+      userId: user._id,
+      userEmail: user.email,
+      tokens: this.tokenService.generateAuthTokens(user),
+      userRole: user.role,
+    };
+
+    if (user.role === UserRolesEnum.STUDENT) {
+      return {
+        ...baseResponse,
+        academicId: user.academicId,
+        currentYear: user.currentYear,
+      };
+
+    }
+
+    return baseResponse;
   }
 
   async confirmEmail(email: string, otp: string) {
@@ -108,7 +183,7 @@ export class AuthService {
       filter: { email },
       update: {
         $unset: { emailOtp: "" },
-        status: StatusEnum.ACTIVE
+        status: ActivationEnum.ACTIVE
       }
 
     })
@@ -116,28 +191,27 @@ export class AuthService {
     return true
   }
 
-
   async resendOtp(email: string) {
     const user = await this.userRepository.findByEmail(email)
     if (!user) {
       throw new NotFoundException('User not found')
     }
 
-    if (user.status === StatusEnum.INACTIVE) {
+    if (user.status === ActivationEnum.INACTIVE) {
       throw new BadRequestException('Email already verified')
     }
 
     const otp = generateOTP(6)
 
-   sendEmail({
-       to: user.email,
-       subject: 'Reset Password',
-       html: `<h1>Hello ${user.fullName}</h1> 
+    sendEmail({
+      to: user.email,
+      subject: 'Reset Password',
+      html: `<h1>Hello ${user.fullName}</h1> 
                   <p>Your reset password OTP is: <strong>${otp}</strong></p>
                   <p>This OTP will expire in 10 minutes.</p>`
-     }).catch((error) => {
-       throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
-     });
+    }).catch((error) => {
+      throw new InternalServerErrorException(error, 'Failed to send OTP email, please try again');
+    });
 
 
     await this.userRepository.update({
@@ -151,47 +225,47 @@ export class AuthService {
     })
     return true
   }
- // To Do Ask about headers and refresh token
+  // To Do Ask about headers and refresh token
   async refreshToken(token: string) {
     const payload = this.tokenService.verify({
       token,
       options: { secret: process.env.JWT_REFRESH_SECRET }
     })
-    const user = await this.userRepository.findOne({filter:{id: new Types.ObjectId(payload._id)}})
+    const user = await this.userRepository.findOne({ filter: { id: new Types.ObjectId(payload._id) } })
     if (!user) {
       throw new UnauthorizedException('Invalid token')
     }
-     return this.tokenService.generateAuthTokens(user);
+    return this.tokenService.generateAuthTokens(user);
   }
 
   async forgotPassword(email: string) {
 
-     const user = await this.userRepository.findByEmail(email)
-    
-     if (!user) {
-       throw new NotFoundException('User not found')
-     }
+    const user = await this.userRepository.findByEmail(email)
 
-     const otp = generateOTP(6)
-    
-      sendEmail({
-       to: user.email,
-       subject: 'Reset Password',
-       html: `<h1>Hello ${user.fullName}</h1> 
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+
+    const otp = generateOTP(6)
+
+    sendEmail({
+      to: user.email,
+      subject: 'Reset Password',
+      html: `<h1>Hello ${user.fullName}</h1> 
                   <p>Your reset password OTP is: <strong>${otp}</strong></p>
                   <p>This OTP will expire in 10 minutes.</p>`
-     }).catch((error) => {
-       throw new InternalServerErrorException(error,'Failed to send OTP email, please try again');
-     });
+    }).catch((error) => {
+      throw new InternalServerErrorException(error, 'Failed to send OTP email, please try again');
+    });
 
-     await this.userRepository.update({
-       filter: { email: email },
-       update: {
-         emailOtp: {
-           code: otp,
-           expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-         }
-       }
+    await this.userRepository.update({
+      filter: { email: email },
+      update: {
+        emailOtp: {
+          code: otp,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+        }
+      }
     })
 
   }
@@ -220,4 +294,7 @@ export class AuthService {
     })
     return true
   }
+
+
+
 }

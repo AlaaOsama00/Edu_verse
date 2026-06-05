@@ -2,23 +2,24 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AbstractRepository } from '@models/abstract.repository';
-import { CourseAssessment} from '@models/CourseAssessment/CourseAssessment.schema';
 import { SemesterEnum } from '@utils/enum';
+import { Enrollment } from './Enrollment.schema';
+
 
 @Injectable()
-export class CourseAssessmentRepository extends AbstractRepository<CourseAssessment> {
+export class EnrollmentRepository extends AbstractRepository<Enrollment> {
   constructor(
-    @InjectModel(CourseAssessment.name)protected readonly courseAssessment: Model<CourseAssessment>,
+    @InjectModel(Enrollment.name)protected readonly enrollment: Model<Enrollment>,
   ) {
-    super(courseAssessment);
+    super(enrollment);
   }
 
   /**
    * Creates a new academic record in the database.
    * !Note: The Service must calculate totalScore, earnedGrade, and finalGrade (with penalty) BEFORE calling this.
    */
-  async create(recordData: Partial<CourseAssessment>): Promise<CourseAssessment> {
-    const newRecord = new this.courseAssessment(recordData);
+  async create(recordData: Partial<Enrollment>): Promise<Enrollment> {
+    const newRecord = new this.enrollment(recordData);
     return newRecord.save();
   }
 
@@ -26,8 +27,8 @@ export class CourseAssessmentRepository extends AbstractRepository<CourseAssessm
    * Retrieves ALL PASSED records for a student across all years.
    * THIS IS THE ONLY FUNCTION USED FOR CALCULATING CUMULATIVE GPA.
    */
-  async findStudentCumulativeRecords(studentId: Types.ObjectId|string): Promise<CourseAssessment[]> {
-    return this.courseAssessment.find({ studentId, isPassed: true }).exec();
+  async findStudentCumulativeRecords(studentId: Types.ObjectId|string): Promise<Enrollment[]> {
+    return this.enrollment.find({ studentId, isPassed: true }).exec();
   }
 
   /**
@@ -39,8 +40,8 @@ export class CourseAssessmentRepository extends AbstractRepository<CourseAssessm
   async findRecordsByAcademicYear(
     studentId: Types.ObjectId,
     year: number,
-  ): Promise<CourseAssessment[]> {
-    return this.courseAssessment.find({ 
+  ): Promise<Enrollment[]> {
+    return this.enrollment.find({ 
       studentId, 
       academicYear: year,
       isPassed: false // بنجيب الراسبات بس عشان نشوف هل هم 2 ولا لا
@@ -57,10 +58,10 @@ export class CourseAssessmentRepository extends AbstractRepository<CourseAssessm
     year: number,
     requiredCourseIds: Types.ObjectId[], 
   ): Promise<Types.ObjectId[]> {
-    const registeredRecords = await this.courseAssessment.find({
+    const registeredRecords = await this.enrollment.find({
       studentId,
       academicYear: year,
-      semester: { $in: [SemesterEnum.First, SemesterEnum.Second] },
+      semester: { $in: [SemesterEnum.FALL, SemesterEnum.SPRING] },
       courseId: { $in: requiredCourseIds }
     }).select('courseId').exec();
 
@@ -79,9 +80,9 @@ export class CourseAssessmentRepository extends AbstractRepository<CourseAssessm
     studentId: Types.ObjectId,
     courseId: Types.ObjectId,
     semester: string,
-  ): Promise<CourseAssessment | null> {
-    return this.courseAssessment.findOne({ studentId, courseId, semester }).exec();
+  ): Promise<Enrollment | null> {
+    return this.enrollment.findOne({ studentId, courseId, semester }).exec();
   }
 
-
+  
 }

@@ -1,5 +1,5 @@
 import { AcademicYearEnum, UserRolesEnum } from '@utils/enum';
-import { IsEmail, IsEnum, IsNotEmpty,IsNumber,IsString, IsStrongPassword, Max, Min, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty,IsString, IsStrongPassword, MinLength, ValidateIf } from 'class-validator';
 
 export class SignInDTO {
   @IsString()
@@ -34,7 +34,7 @@ export class SignInDTO {
    role: UserRolesEnum; 
 
      // دي بتفعّل لو الـ Role اللي اختاره الطالب
-  @ValidateIf((o) => o.role === UserRolesEnum.STUDENT|| o.role === UserRolesEnum.PROFESSOR)
+  @ValidateIf((o) => o.role === UserRolesEnum.STUDENT)
   @IsString()
   @IsNotEmpty()
   academicId?: string;
@@ -85,3 +85,5 @@ export class resetPasswordDto {
     @IsNotEmpty()
     newPassword:string;
 }
+
+ 

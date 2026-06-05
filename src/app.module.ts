@@ -7,7 +7,8 @@ import devConfig from './config/dev.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CourseModule } from './modules/course/course.module';
 import { GradeModule } from './modules/grade/grade.module';
-import { StudentModule } from './modules/student/student.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
+import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
 
 
 
@@ -30,8 +31,13 @@ import { StudentModule } from './modules/student/student.module';
 
   CourseModule,
 
-  StudentModule
- 
+  AssessmentModule,
+
+  GradeModule,
+
+  EnrollmentModule,
+
+   
     ],
   controllers: [AppController],
   providers: [AppService],
