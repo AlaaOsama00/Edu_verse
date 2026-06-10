@@ -18,7 +18,7 @@ export class EnrollmentController {
   @Auth(UserRolesEnum.STUDENT)
   async getAvailableCourses(
     @CurrentUser('userId') userId: string,
-    @Query() query: GetAvailableQueryDto, // فيه حقل الـ semester
+    @Query() query: GetAvailableQueryDto,
   ) {
     const semester = query.semester || SemesterEnum.FALL;
     return this.enrollmentService.getAvailableCourses(userId, semester);

@@ -40,5 +40,8 @@ export class CourseRepository extends AbstractRepository<Course> {
     return this.model.countDocuments(filter).exec();
   }
 
+ async aggregate(pipeline: any[]): Promise<any[]> {
+    return this.courseModel.aggregate(pipeline).exec();
+  }
 
 }

@@ -24,7 +24,7 @@ export class CourseController {
     return this.courseService.getAllCourses(pagination, search);
   }
 
-  @Auth(UserRolesEnum.ADMIN)
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR) 
   @Get(':id')
   findCourseById(@Param('id') id: Types.ObjectId) {
     return this.courseService.findCourseById(id);

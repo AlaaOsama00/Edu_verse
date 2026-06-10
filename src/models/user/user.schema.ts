@@ -31,7 +31,7 @@ export class User {
   @Prop({ type: String, enum: UserRolesEnum })
   role: UserRolesEnum;
 
-  @Prop({ type: String, unique: true })
+  @Prop({ type: String, unique: true ,sparse:true})
   academicId: string;
 
   @Prop({ type: String, enum: AcademicYearEnum})

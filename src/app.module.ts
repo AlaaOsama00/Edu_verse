@@ -9,6 +9,7 @@ import { CourseModule } from './modules/course/course.module';
 import { GradeModule } from './modules/grade/grade.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
 import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
+import { UserModule } from './modules/user/user.module';
 
 
 
@@ -27,6 +28,8 @@ import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
 
   AuthModule,
 
+  UserModule,
+  
   GradeModule,
 
   CourseModule,

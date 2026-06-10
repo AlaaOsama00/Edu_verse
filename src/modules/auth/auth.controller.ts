@@ -1,10 +1,7 @@
-import { Controller, Post, Body, Headers, Param, Patch, Delete } from '@nestjs/common';
-import { ConfirmEmailDto, CreateUserDto, forgotPasswordDto, ResendOtpDto, resetPasswordDto, SignInDTO } from './dto/authDto';
+import { Controller, Post, Body, Headers, Param, Patch, Delete, Get, Query } from '@nestjs/common';
+import { ConfirmEmailDto, forgotPasswordDto, ResendOtpDto, resetPasswordDto, SignInDTO } from './dto/authDto';
 import { Throttle } from "@nestjs/throttler";
 import { AuthService } from './auth.service';
-import { Auth } from '@decorators/authDecorator';
-import { UserRolesEnum } from '@utils/enum';
-import { UpdateUserDto } from './dto/updateUserDto';
 
 
 
@@ -16,24 +13,7 @@ export class AuthController {
     private readonly authService: AuthService,
   ) { }
 
-  @Auth(UserRolesEnum.ADMIN)
-  @Post('create-account')
-  async createUser(@Body() createUserDto: CreateUserDto) {
-    return this.authService.createUser(createUserDto);
-  }
-  
-  @Auth(UserRolesEnum.ADMIN)
-  @Patch('user/:id')
-  updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.authService.updateUserData(id, updateUserDto);
-  }
-
-  @Auth(UserRolesEnum.ADMIN)
-  @Delete('user/:id')
-  deleteUserById(@Param('id') id: string) {
-    return this.authService.deleteUserById(id);
-  }
-
+ 
   @Post('log-in')
   async signIn(@Body() signInDTO: SignInDTO) {
     return await this.authService.signIn(signInDTO)

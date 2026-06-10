@@ -5,8 +5,8 @@ import { sendEmail } from 'src/common/utiles/email.utils';
 import { TokenService } from 'src/common/service/token.service';
 import { Types } from 'mongoose';
 import { ActivationEnum, UserRolesEnum } from '@utils/enum';
-import { CreateUserDto, SignInDTO } from './dto/authDto';
-import { UpdateUserDto } from './dto/updateUserDto';
+import { SignInDTO } from './dto/authDto';
+
 
 @Injectable()
 export class AuthService {
@@ -15,103 +15,6 @@ export class AuthService {
     private readonly tokenService: TokenService,
   ) { }
 
-  async createUser(createUserDto: CreateUserDto) {
-
-    const existingUser = await this.userRepository.findOne({ filter: { email: createUserDto.email } });
-    if (existingUser) { throw new BadRequestException('This email already exists.'); }
-
-    if (createUserDto.role === UserRolesEnum.STUDENT) {
-
-      if (!createUserDto.currentYear || !createUserDto.academicId) { throw new BadRequestException('currentYear and academicId are required '); }
-
-      const existingStudentId = await this.userRepository.findOne({ filter: { academicId: createUserDto.academicId } });
-
-      if (existingStudentId) {
-        throw new BadRequestException('This academicId is already in use.');
-      }
-    }
-
-    else {
-      if (createUserDto.academicId || createUserDto.currentYear) {
-        throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
-      }
-    }
-    const hashedPassword = await hashPassword(createUserDto.password);
-    const userData: any = {
-      fullName: createUserDto.fullName,
-      email: createUserDto.email,
-      password: hashedPassword,
-      role: createUserDto.role,
-      ...(createUserDto.role === UserRolesEnum.STUDENT && {
-        academicId: createUserDto.academicId,
-        currentYear: createUserDto.currentYear,
-      })
-    };
-
-    const user = await this.userRepository.create(userData);
-
-    return {
-      message: `${user.role} account created successfully`,
-      data: {
-        userId: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        ...(user.role === UserRolesEnum.STUDENT && {
-          academicId: user.academicId,
-          currentYear: user.currentYear,
-        }),
-      }
-    };
-
-  }
-
-  async updateUserData(id: string, updateUserDto: UpdateUserDto) {
-    // أولاً: نتأكد إن الطالب موجود
-    const user = await this.userRepository.findOne({
-      filter: { userId: id }
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const { academicId, currentYear, fullName, email } = updateUserDto;
-
-    // تحديث بيانات الـ Student Profile
-    if (academicId || currentYear) {
-      const userData: any = {};
-      if (academicId) userData.academicId = academicId;
-      if (currentYear) userData.currentYear = currentYear;
-      if (fullName) userData.fullName = fullName;
-      if (email) {
-        userData.email = email;
-        const existingUser = await this.userRepository.findByEmail(email);
-        if (existingUser && existingUser._id.toString() !== user._id.toString()) {
-          throw new BadRequestException('This email is already used by another user.');
-        }
-      }
-      await this.userRepository.update({ filter: { _id: id }, update: userData });
-    }
-
-    return {
-      message: 'User updated successfully',
-    };
-  }
-
-  async deleteUserById(id: string) {
-    const user = await this.userRepository.findOne({ filter: { userId: id } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // ثالثاً: نمسح حساب الـ User المرتبط بيه
-    await this.userRepository.deleteOne({ filter: { _id: user._id } });
-
-    return {
-      message: 'User deleted successfully'
-    };
-  }
 
   async signIn(signInDTO: SignInDTO) {
 
@@ -295,6 +198,10 @@ export class AuthService {
     return true
   }
 
+ 
+  async getAllUsers(role?: UserRolesEnum) {
 
+
+  }  
 
 }
