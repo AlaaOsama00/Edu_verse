@@ -34,8 +34,10 @@ export class Course {
       assignment1: Number, 
       assignment2: Number 
     },
-    required: true,
-    _id: false, 
+       _id: false, 
+     required: function (this: any) {
+      return !this.isTraining; 
+    }
   })
   marksDistribution: IMarks; 
 }

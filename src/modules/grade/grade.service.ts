@@ -1,10 +1,12 @@
 
-import { AssessmentRepository,EnrollmentRepository, GradeRepository, UserRepository} from '@models/index';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AssessmentRepository, EnrollmentRepository, GradeRepository, UserRepository } from '@models/index';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import {  GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
-import { EditGradeDto } from './dto/edit-grade.dto';
+import { AssessmentTypeEnum, EnrollmentStatusEnum, GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
 import { BulkGradeDto } from './dto/bulk-grade.dto';
+import { EditGradeDto } from './dto/edit-grade.dto';
+import { AcademicRecordService } from '../academicRecord/academicRecord.service';
+
 
 @Injectable()
 export class GradeService {
@@ -12,220 +14,332 @@ export class GradeService {
     private readonly gradeRepo: GradeRepository,
     private readonly assessmentRepo: AssessmentRepository,
     private readonly enrollmentRepo: EnrollmentRepository,
-    private readonly userRepository: UserRepository,
-  ) {}
+    private readonly academicRecordService: AcademicRecordService,
+    private readonly userRepository: UserRepository
+  ) { }
 
-   // ==========================================
-  // الفحص الأوتوماتيكي للمواعيد (يشتغل لما حد يفتح الصفحة)
-  // ==========================================
- private async checkAndApplyDeadlines(assessments: any[]) {
-    const now = new Date();
-
-    for (const assess of assessments) {
-      // لو التقييم ده مفيهوش Deadline (زي الميدترم)، اتباعد
-      if (!assess.deadline) continue;
-
-      // لو الـ Deadline لسه مستقبلي (ما خلصش)، اتبعد
-      if (assess.deadline > now) continue;
-
-      // ⬇️ لو وصلنا لهنا، يبقى الـ Deadline خلص!
-      // حدّت كل اللي لسه ما سلموا (لأن اللي سلموا قبل كده حالتهم SUBMITTED ومش هيتأثروا)
-      await this.gradeRepo.updateMany(
-        {
-          assessmentId: assess._id,
-          submissionStatus: SubmissionStatusEnum.NOT_SUBMITTED,
-          gradeStatus: GradeStatusEnum.PENDING, // احترازية: لو الدكتور دخل درجة يدوياً قبل ما الميعاد يقفل، متلمسهاش
-        },
-        {
-          $set: {
-            submissionStatus: SubmissionStatusEnum.MISSING,
-            marks: 0,
-            gradeStatus: GradeStatusEnum.GRADED,
-          }
-        }
-      );
-    }
-  }
+  //! to do mid,final,practical view Dynamic colum for un uploaded grades
   // ==========================================
   // 1. عرض الـ Gradebook للدكتور
   // ==========================================
-   async getGradebook(courseId: string) {
+  async getGradebook(courseId: string) {
     const courseIdObj = new Types.ObjectId(courseId);
 
-    // أ: جيب كل التقييمات بتاعة الكورس ده (الأعمدة)
-    // المفروض ترجعهم مرتبين زي ما انت عاوز (مثلاً: Assignments الأول، ثم Midterm)
+    // أ: جيب الأعمدة (التقييمات)
     const assessments = await this.assessmentRepo.find({ courseId: courseIdObj });
-    
-    await this.checkAndApplyDeadlines(assessments);
 
-    // ب: جيب كل الطلاب المسجلين في الكورس ده (الصفوف)
-    // بنجيبهم من الـ Enrollment عشان نأكد إنهم فعلاً مسجلين المادة دي
-     const enrollments = await this.enrollmentRepo.find({
-      filter: { courseId: courseIdObj },
-      populate: [
-        {
-          path: 'studentId', 
-          select: 'academicId userId',
-          populate: {
-            path: 'userId',
-            select: 'fullName' // جيب اسم الطالب الحقيقي
-          }
+    // ب: جيب الصفوف (الطلاب) باستخدام Aggregate
+    const enrollments = await this.enrollmentRepo.aggregate([
+      { $match: { courseId: courseIdObj } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'studentId',
+          foreignField: '_id',
+          as: 'studentData'
         }
-      ]
-    });
-    
-    // ج: جيب كل الدرجات اللي موجودة في الداتا بيز للكورس ده
+      },
+      { $unwind: { path: '$studentData', preserveNullAndEmptyArrays: true } }
+    ]);
+
+    // ج: جيب كل الدرجات الحقيقية اللي في الداتا
     const grades = await this.gradeRepo.find({ courseId: courseIdObj });
 
-    // د: بناء الـ Matrix (مصفوفة الصفوف والأعمدة اللي هتترسل للواجهة)
+    // د: بناء المصفوفة والمنطق
     const studentRows = enrollments.map((enrollment: any) => {
-      const student = enrollment.studentId;
+      const student = enrollment.studentData;
+      const studentName = student?.fullName || student?.name || 'Unknown Student';
+      const academicId = student?.academicId || 'N/A';
 
-      // لكل طالب، هندور على درجاته في كل تقييم
       const assessmentsData = assessments.map((assess: any) => {
-        // دور، هل في سجل grade فيه studentId == الطالب ده و assessmentId == التقييم ده؟
+        // دور على الدرجة الحقيقية لو موجودة
         const grade = grades.find(
-          (g) => g.studentId.toString() === student._id.toString() && 
-               g.assessmentId.toString() === assess._id.toString()
+          (g) => g.studentId?.toString() === enrollment.studentId?.toString() &&
+            g.assessmentId?.toString() === assess._id?.toString()
         );
 
-        // لو لقينا سجل، حط الدرجات، لو لا، حط Null (يعني فاضي في الجدول)
+        const now = new Date();
+        // متغير بيحدد هل الميعاد خلص ولا لسه
+        const isDeadlinePassed = assess.deadline && new Date(assess.deadline) <= now;
+
+        let currentSubmissionStatus;
+        let currentGradeStatus;
+        let displayMarks;
+
+        if (grade) {
+          // ==========================================
+          // الحالة الأولى: في سجل حقيقي في الداتا (الطالب سلم أو الدكتور دخل درجة)
+          // ==========================================
+          currentSubmissionStatus = grade.submissionStatus;
+
+          if (isDeadlinePassed && grade.submissionStatus === SubmissionStatusEnum.SUBMITTED) {
+            // سلم والميعاد خلص -> ياخد الماكس سكور أوتوماتيك على الشاشة
+            currentGradeStatus = GradeStatusEnum.GRADED;
+            displayMarks = assess.maxMark;
+          } else {
+            // غير كده -> نعرض اللي في الداتا زي ما هو
+            currentGradeStatus = grade.gradeStatus;
+            displayMarks = grade.mark;
+          }
+
+        } else {
+          // ==========================================
+          // الحالة التانية: مفيش سجل خالص في الداتا (معناها مش سلم)
+          // ==========================================
+          if (isDeadlinePassed) {
+            // ميعاد خلص وهو مش سلم -> MISSING و 0
+            currentSubmissionStatus = SubmissionStatusEnum.MISSING;
+            currentGradeStatus = GradeStatusEnum.GRADED;
+            displayMarks = 0;
+          } else {
+            // لسه وقت -> NOT_SUBMITTED و null
+            currentSubmissionStatus = SubmissionStatusEnum.NOT_SUBMITTED;
+            currentGradeStatus = GradeStatusEnum.PENDING;
+            displayMarks = null;
+          }
+        }
+
         return {
-          gradeId: grade?._id || null, // مهم جداً: عشان لما الطالب يضغط Save، الواجهة تبعت الـ ID ده
+          gradeId: grade?._id || null,
           assessmentId: assess._id,
           assessmentName: assess.name,
-          maxMark: assess.maxMark, // عشان الواجهة تعرض "من 10" أو "من 40"
-          marks: grade?.marks || null,
-          submissionStatus: grade?.submissionStatus || SubmissionStatusEnum.MISSING,
-          gradeStatus: grade?.gradeStatus || GradeStatusEnum.PENDING,
+          maxMark: assess.maxMark,
+          marks: displayMarks,
+          submissionStatus: currentSubmissionStatus,
+          gradeStatus: currentGradeStatus,
         };
       });
 
       return {
         enrollmentId: enrollment._id,
-        studentId: student._id,
-        studentName:student.userId?.fullName||'UnKnown Student',
-        academicId: student.academicId, 
-        assessments: assessmentsData, // مصفوفة الدرجات بتاعته
+        studentId: enrollment.studentId,
+        studentName: studentName,
+        academicId: academicId,
+        assessments: assessmentsData,
       };
     });
 
     return {
-      // بندخل الأعمدة والصفوف للواجهة
-      columns: assessments, 
+      columns: assessments.map(a => ({
+        _id: a._id,
+        type: a.type,
+        name: a.name,
+        maxMark: a.maxMark,
+        deadline: a.deadline
+      })),
       rows: studentRows,
+
     };
   }
-
   // ==========================================
   // 2. تعديل درجة طالب واحد
   // ==========================================
-  async editGrade(gradeId: string, dto: EditGradeDto) {
-    const grade = await this.gradeRepo.findById(new Types.ObjectId(gradeId));
-    if (!grade){ 
-      throw new NotFoundException('Grade record not found');
-    }
-    // 1. نتأكد إن الدرجة مش أكبر من الدرجة العظمى (التحقق الديناميكي)
-    const assessment = await this.assessmentRepo.findById(grade.assessmentId);
-    if (!assessment){
-      throw new NotFoundException("this assessment not found")
-    }
-    if (dto.marks > assessment.maxMark) {
-      throw new BadRequestException(`Marks cannot exceed ${assessment.maxMark}`);
-    }
-
-    // 2. تحديث الدرجات وتغيير الحالة أوتوماتيكياً
-
-    const filter = { _id: grade._id };
-    const update = { 
-      $set: { 
-        marks: dto.marks, 
-        gradeStatus: GradeStatusEnum.GRADED 
-      } 
-    };
-
-    // 3. نادّي الـ Repo بالشكل اللي بيفتكره
-    return this.gradeRepo.update({ filter, update });
+  async editGrade(gradeId: string, dto: EditGradeDto, professorId: string) {
+  // 1. Fetching Data
+  const grade = await this.gradeRepo.findById(new Types.ObjectId(gradeId));
+  if (!grade) {
+    throw new NotFoundException('Grade record not found');
   }
 
+  const assessment = await this.assessmentRepo.findById(grade.assessmentId);
+  if (!assessment) {
+    throw new NotFoundException('Assessment not found');
+  }
 
+  // 2. Validation
+  if (dto.marks > assessment.maxMark) {
+    throw new BadRequestException(`Marks cannot exceed ${assessment.maxMark}`);
+  }
+
+  if (assessment.createdByProf.toString() !== professorId.toString()) {
+    // استخدمنا Forbidden لأنها أدق من BadRequest في حالات الصلاحيات
+    throw new ForbiddenException('You are not authorized to edit this grade.'); 
+  }
+
+  // 3. Preparing Updates
+  const updateGradeTask = this.gradeRepo.update({
+    filter: { _id: grade._id }, // الاعتماد على _id زي ما انتي شغالة
+    update: {
+      $set: {
+        marks: dto.marks,
+        gradeStatus: GradeStatusEnum.GRADED,
+      },
+    },
+  });
+
+  const updateEnrollmentTask = this.enrollmentRepo.findOneAndUpdate({
+    filter: {
+      studentId: grade.studentId,
+      courseId: assessment.courseId,
+    },
+    update: {
+      $set: {
+        [`marks.${assessment.type}`]: dto.marks,
+      },
+    },
+  });
+
+  // 4. Execute concurrently
+  // بدل ما نستنى الـ Enrollment يخلص وبعدين نعمل الـ Grade، هنشغلهم مع بعض في نفس الوقت
+  const [updateGrade, updateEnrollment] = await Promise.all([updateGradeTask, updateEnrollmentTask]);
+  if (updateEnrollment) {
+    await this.academicRecordService.evaluateStudentProgress(
+      grade.studentId,
+      updateEnrollment.academicYear, // أخدناها من الـ enrollment
+      updateEnrollment.semester // أخدناها من الـ enrollment
+    );
+  }
+  return {
+    gradeId:updateGrade?._id,
+    data:updateEnrollment
+  }
+}
   // ==========================================
   // 3. رفع درجات الامتحان من الإكسل (براكتيكال/ميدترم/فاينال)
   // ==========================================
-  async bulkUploadGrades(courseId: string, assessmentId: string, dto: BulkGradeDto) {
-    const courseIdObj = new Types.ObjectId(courseId);
-    const assessmentIdObj = new Types.ObjectId(assessmentId);
+  async bulkUploadGrades(professorId: string, dto: BulkGradeDto) {
+    const assessment = await this.assessmentRepo.findOne({ filter: { _id: dto.assessmentId } });
+    if (!assessment) throw new BadRequestException('Assessment not found');
+    if (assessment.createdByProf.toString() !== professorId.toString()) throw new BadRequestException('Not authorized.');
 
-    const assessment = await this.assessmentRepo.findById(assessmentIdObj);
-    if (!assessment) 
-      throw new NotFoundException('Assessment not found');
+    const courseId = assessment.courseId.toString();
+    const assessmentType = assessment.type;
 
-    let successCount = 0;
-    const errors: string[] = [];
-    
-    for (let i = 0; i < dto.students.length; i++) {
-      const studentData = dto.students[i];
 
-      // 1. التحقق من الدرجة
-      if (studentData.marks > assessment.maxMark) {
-        errors.push(`Row ${i + 1}: Marks (${studentData.marks}) exceed max (${assessment.maxMark})`);
-        continue;
+    const firstStudent = dto.studentsGrade[0];
+    if (!firstStudent) throw new BadRequestException('No students provided');
+
+    const student = await this.userRepository.findOne({ filter: { academicId: firstStudent.academicId } });
+
+    const contextEnrollment = await this.enrollmentRepo.findOne({
+      filter: {
+        studentId: firstStudent.academicId, // ملاحظة: إنت مستخدم academicId في الـ DTO
+        courseId: courseId
       }
+    });
 
-      // 2. جيب الطالب
-      const student = await this.userRepository.findOne({ filter: { academicId: studentData.academicId } });
-      if (!student) {
-        errors.push(`Row ${i + 1}: Student ${studentData.academicId} not found`);
-        continue;
-      }
+    for (const item of dto.studentsGrade) {
 
-      // 3. تأكد من التسجيل
-      const isEnrolled = await this.enrollmentRepo.findOne({ filter: { studentId: student._id, courseId: courseIdObj } });
-      if (!isEnrolled) {
-        errors.push(`Row ${i + 1}: Student ${studentData.academicId} not enrolled`);
-        continue;
-      }
+      // ⬇️ تحديث مباشرة لأننا متأكدين إن السجل موجود
+      await this.gradeRepo.findOneAndUpdate({
+        filter: {
+          studentId: item.academicId,
+          assessmentId: dto.assessmentId
+        },
+        update: {
+          $set: {
+            marks: item.marks,
+            submissionStatus: SubmissionStatusEnum.SUBMITTED,
+            gradeStatus: GradeStatusEnum.GRADED
+          }
+        }
+      });
 
-      // 4. حفظ أو تحديث (نفس الـ Logic القديم بالظبط)
-      const existingGrade = await this.gradeRepo.findOne({ filter: { studentId: student._id, assessmentId: assessmentIdObj } });
-
-      if (existingGrade) {
-        await this.gradeRepo.update({
-          filter: { _id: existingGrade._id },
-          update: { $set: { marks: studentData.marks, gradeStatus: GradeStatusEnum.GRADED, submissionStatus: SubmissionStatusEnum.SUBMITTED }}
-        });
-      } else {
-        await this.gradeRepo.create({
-          studentId: student._id,
-          courseId: courseIdObj,
-          assessmentId: assessmentIdObj,
-          marks: studentData.marks,
-          gradeStatus: GradeStatusEnum.GRADED,
-          submissionStatus: SubmissionStatusEnum.SUBMITTED,
-        });
-      }
-      successCount++;
+      // تحديث الـ Enrollment
+      await this.enrollmentRepo.findOneAndUpdate({
+        filter: { studentId: item.academicId, courseId: courseId },
+        update: { $set: { [`marks.${assessmentType}`]: item.marks } },
+      });
     }
-
-    let mainMessage: string;
-
-    if (errors.length === 0) {
-      mainMessage = `All grades saved successfully! (${successCount} students processed).`;
-    } else if (successCount === 0) {
-      mainMessage = `Failed to save any grades. Please review the errors (${errors.length} failures).`;
-    } else {
-      mainMessage = `Grades saved with some warnings. (${successCount} succeeded, ${errors.length} failed).`;
+    // ==========================================
+    // ⬇️ التريجر: اطلق المحرك الآلي بعد ما الـ Loop يخلص
+    // ==========================================
+    if (contextEnrollment && student) {
+      await this.academicRecordService.evaluateStudentProgress(
+          student._id,
+          contextEnrollment.academicYear,
+          contextEnrollment.semester,
+        
+      );
     }
-
-    // 2. رجع الـ Response النهائي
-    return {
-      message: mainMessage, // الرسالة الواضحة
-      successCount,
-      failedCount: errors.length,
-      errors: errors.length > 0 ? errors : undefined, // لو مفيش أخطاء، متروحش ترجعلي الأراي خالي، ارجع undefined
-    };  
+    return { message: `Grades updated successfully for ${assessmentType}.` };
   }
+  // ==========================================
+  // 4. واجهة الطالب: درجاتي في الترم الحالي
+  // ==========================================
+  async getMyCurrentGrades(studentId: string, academicYear: string, semester: string) {
+    const studentObjId = new Types.ObjectId(studentId);
 
+    // 1. جيب كل الكورسات اللي الطالب مسجل فيها في الترم ده، مع بيانات الكورس
+    const enrollmentsWithCourses = await this.enrollmentRepo.aggregate([
+      {
+        $match: {
+          studentId: studentObjId,
+          academicYear,
+          semester,
+          // ⚠️ تأكد إنك مستورد EnrollmentStatusEnum من ملف الـ enums
+          enrollmentStatus: EnrollmentStatusEnum.ACTIVE
+        }
+      },
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'courseId',
+          foreignField: '_id',
+          as: 'courseData'
+        }
+      },
+      { $unwind: '$courseData' }
+    ]);
 
- 
+    if (enrollmentsWithCourses.length === 0) {
+      return [];
+    }
+
+    // 2. جيب كل الـ Assessments اللي تخص الكورسات دي
+    const courseIds = enrollmentsWithCourses.map(e => e.courseId);
+    const assessments = await this.assessmentRepo.find({ courseId: { $in: courseIds } });
+
+    // 3. خريطة الأسماء الافتراضية مربوطة بالـ Enum
+    const defaultNames: Record<AssessmentTypeEnum, string> = {
+      [AssessmentTypeEnum.ASSIGNMENT1]: 'Assignment 1',
+      [AssessmentTypeEnum.ASSIGNMENT2]: 'Assignment 2',
+      [AssessmentTypeEnum.MIDTERM]: 'Midterm Exam',
+      [AssessmentTypeEnum.FINAL]: 'Final Exam',
+      [AssessmentTypeEnum.PRACTICAL]: 'Practical',
+    };
+
+    // 4. بناء الشكل النهائي للطالب
+    const coursesGrades = enrollmentsWithCourses.map((enrollment: any) => {
+      const course = enrollment.courseData;
+      const dist = course.marksDistribution;
+      const myMarks = enrollment.marks || {};
+
+      // بناء مصفوفة التقييمات (بنلف على الـ Enum ونشيل اللي مش موجود في الكورس)
+      const assessmentDetails = Object.values(AssessmentTypeEnum)
+        .filter(type => {
+          // نشيل أي حاجة مش موجودة في توزيع الكورس ده
+          return dist[type] !== undefined && dist[type] !== null;
+        })
+        .map(type => {
+          // الآن الـ type معروف للـ TypeScript إنه AssessmentTypeEnum
+          const matchingAssessment = assessments.find(a => a.type === type);
+
+          return {
+            type: type,
+            name: matchingAssessment?.name || defaultNames[type] || type,
+            maxMark: dist[type],
+            // الدرجة اللي حصل عليها الطالب
+            myMark: myMarks[type] !== undefined ? myMarks[type] : null,
+            // حالة التقييم
+            status: matchingAssessment ? 'ACTIVE' : 'NOT_OPENED_YET'
+          };
+        });
+
+      return {
+        courseId: course._id,
+        courseName: course.name,
+        courseCode: course.code,
+        // لو الأدمن عمل finalize هتظهر النتيجة النهائية
+        finalGrade: enrollment.finalGrade || null,
+        totalScore: enrollment.totalScore || null,
+        // تفاصيل الدرجات
+        assessments: assessmentDetails
+      };
+    });
+
+    return coursesGrades;
+  }
 }
+
+//!TEST THIS FILE 

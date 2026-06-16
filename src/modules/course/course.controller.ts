@@ -42,9 +42,6 @@ export class CourseController {
     return this.courseService.deleteCourseById(id);
   }
 
-    // 6. جلب كورسات سنة معينة وفصل معين (للطالب في الـ Registration) 
-  // @Get('by-year-semester')
-  // GetCoursesByYearAndSemester(@Query('year') year: AcademicYearEnum, @Query('semester') semester: SemesterEnum) {
-  //   return this.courseService.getCoursesByYearAndSemester(year, semester);
-  // }
+   
+  
 }

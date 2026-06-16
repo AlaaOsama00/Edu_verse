@@ -14,15 +14,15 @@ export class EnrollmentController {
    // ==========================================
   // 1. عرض المواد المتاحة 
   // ==========================================
-  @Get('available-courses')
-  @Auth(UserRolesEnum.STUDENT)
-  async getAvailableCourses(
-    @CurrentUser('userId') userId: string,
-    @Query() query: GetAvailableQueryDto,
-  ) {
-    const semester = query.semester || SemesterEnum.FALL;
-    return this.enrollmentService.getAvailableCourses(userId, semester);
-  }
+    @Get('available-courses')
+    @Auth(UserRolesEnum.STUDENT)
+    async getAvailableCourses(
+      @CurrentUser('_id') userId: string,
+      @Query() query: GetAvailableQueryDto,
+    ) {
+      const semester = query.semester || SemesterEnum.FALL;
+      return this.enrollmentService.getAvailableCourses(userId, semester);
+    }
 
   // ==========================================
   // 2. إضافة مادة واحدة (لما يدوس على زرار Add)
@@ -30,7 +30,7 @@ export class EnrollmentController {
   @Post('add-course')
   @Auth(UserRolesEnum.STUDENT)
   async addSingleCourse(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser('_id') userId: string,
     @Body() dto: AddSingleCourseDto, // فيه courseId و semester
   ) {
     return this.enrollmentService.addSingleCourse(userId, dto);
@@ -42,7 +42,7 @@ export class EnrollmentController {
   @Post('confirm')
   @Auth(UserRolesEnum.STUDENT)
   async confirmRegistration(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser('_id') userId: string,
     @Body() dto: ConfirmRegistrationDto, // فيه semester بس
   ) {
     return this.enrollmentService.confirmRegistration(userId, dto.semester);
@@ -54,7 +54,7 @@ export class EnrollmentController {
   @Get('my-schedule')
   @Auth(UserRolesEnum.STUDENT)
   async getMySchedule(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser('_id') userId: string,
     @Query('semester') semester: string, // required عشان نوصل الترم
   ) {
     return this.enrollmentService.getMySchedule(userId, semester);

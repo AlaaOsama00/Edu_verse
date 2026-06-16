@@ -1,13 +1,13 @@
-import {  IsDateString, IsEnum, IsNotEmpty, IsNumber, IsObject, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsMongoId, IsNotEmpty, IsString } from 'class-validator';
 import { AssessmentTypeEnum } from '@utils/enum';
 
 export class CreateAssignmentDto {
 
   @IsNotEmpty()
-  @IsObject()
+  @IsMongoId()
   courseId: string;
 
- @IsEnum([AssessmentTypeEnum.ASSIGNMENT1, AssessmentTypeEnum.ASSIGNMENT2])
+  @IsEnum([AssessmentTypeEnum.ASSIGNMENT1, AssessmentTypeEnum.ASSIGNMENT2])
   @IsNotEmpty()
   type: AssessmentTypeEnum;
 
@@ -15,10 +15,9 @@ export class CreateAssignmentDto {
   @IsNotEmpty()
   name: string;
 
-  @IsNumber()
-  @Min(1)
+  @IsString()
   @IsNotEmpty()
-  maxMark: number;
+  description: string;
 
   @IsDateString()
   @IsNotEmpty()

@@ -5,18 +5,17 @@ import { AcademicYearEnum } from '@utils/enum';
 
 @Schema({ timestamps: true })
 export class AcademicRecord {
-  @Prop({ type: Types.ObjectId, ref: 'Student', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   studentId: Types.ObjectId;
 
-  @Prop({ type: String, required: true, enum: AcademicYearEnum })
+ @Prop({ type: String, required: true, enum: AcademicYearEnum })
   academicYear: AcademicYearEnum;
-
 
   // عدد المواد اللي سقط فيها في السنة دي
   @Prop({ type: Number, required: true, default: 0 })
   failedCount: number;
 
-  // أكتر من 2 مواد راسب → لازم يعيد السنة
+  // أكتر من مادة راسب → لازم يعيد السنة
   @Prop({ type: Boolean, default: false })
   mustRepeatYear: boolean;
 
@@ -28,9 +27,9 @@ export class AcademicRecord {
   @Prop({ type: Number, default: null, min: 0, max: 4 })
   cumulativeGpa: number | null;
 
-  // هل الطالب اتسمح له يعدي للسنة الجاية
+  // 💡 إضافة مقترحة: هل تم خصم تقديراته في السنة دي بسبب الصيف؟
   @Prop({ type: Boolean, default: false })
-  isPromoted: boolean;
+  hasPenalty: boolean;
 
 }
 

@@ -58,7 +58,6 @@ export enum GradeEnum {
 export enum SummerReasonEnum {
   NONE = 'NONE',                 // لو أخدها في فصل عادي
   FAILURE = 'FAILURE',           // لو رسبهاوجاي ياخدها في الصيف (هيتطبق عليه الخصم)
-  NON_REGISTRATION = 'NON_REGISTRATION', // لو ما سجلش فيها أصلاً (مفيش خصم)
 }
 
 export enum SemesterEnum {
@@ -67,20 +66,32 @@ export enum SemesterEnum {
   SUMMER = 'SUMMER',
 }
  
-export enum TrackEnum {
-  UI = 'UI',
-  CYBERSECURITY = 'CYBERSECURITY',
-  BACKEND = 'BACKEND',
-  FRONTEND = 'FRONTEND',
-  MOBILE = 'MOBILE',
-  AI = 'AI',
-  DATA_ANALYSIS = 'DATA_ANALYSIS',
-  NETWORK = 'NETWORK',
-}
-
 
 export enum StudentStatusEnum {
   ENROLLED = 'ENROLLED',
   DROPPED = 'DROPPED',
 }//to do in 4 th year term  2
   
+
+
+export enum ClubTagEnum {
+  UI = '#UI',
+  CYBERSECURITY = '#CYBERSECURITY',
+  BACKEND = '#BACKEND',
+  FRONTEND = '#FRONTEND',
+  MOBILE = '#MOBILE',
+  AI = '#AI',
+  DATA_ANALYSIS = '#DATA_ANALYSIS',
+  NETWORK = '#NETWORK',
+}
+
+export enum ClubResourceTypeEnum {
+  PDF = 'PDF',
+  VIDEO_STREAM = 'VideoStream',
+  LINK = 'Link',
+}
+
+export enum ClubMemberRoleEnum {
+  MEMBER = 'MEMBER',
+  ADMIN = 'ADMIN',
+}

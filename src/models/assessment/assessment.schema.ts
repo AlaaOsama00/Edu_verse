@@ -32,7 +32,7 @@ export class Assessment {
   // ==========================================
   // لو النوع MIDTERM، دي هتبقى Null ومش هتأثر على حاجة
   
-  @Prop({ type: String, default: null })
+  @Prop({ type: String, default: "", required: true })
   description: string; // وصف الواجب (الامتحان مش بيحتاج وصف عادة)
 
   @Prop({ type: Date, default: null })

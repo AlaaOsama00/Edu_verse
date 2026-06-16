@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { EnrollmentStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
-import { EnrollmentRepository, CourseRepository ,StudyPlanRepository, UserRepository } from '@models/index';
+import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
 import { AddSingleCourseDto } from './dto/add-single-course-dto';
 
 
@@ -18,9 +18,8 @@ export class EnrollmentService {
   // 1. جلب المواد المتاحة للتسجيل (اللي هتظهر في الـ UI)
   // ==========================================
   async getAvailableCourses(studentId: string, semester: SemesterEnum) {
-
     const student = await this.userRepository.findById(new Types.ObjectId(studentId));
-    if (!student) throw new NotFoundException('Student profile not found');
+    if (!student) throw new NotFoundException('Failed to load Student profile');
 
     const academicYear = student.currentYear;
 
@@ -32,7 +31,7 @@ export class EnrollmentService {
     // 3. جيب تفاصيل المواد ( Populate )
     const planWithDetails = await plan.populate({
       path: 'courses.courseId',
-      select: 'name code creditHours professorId',
+      select: 'name code creditHours fullName',
     });
 
     // 4. اشيك المواد اللي هو مسجلها فعلاً (عشان نعملها Disable في الـ UI)
@@ -49,7 +48,7 @@ export class EnrollmentService {
       courseCode: item.courseId.code,
       courseName: item.courseId.name,
       creditHours: item.courseId.creditHours,
-      professorId: item.professorId,
+      professorName: item.courseId.fullName,
       isAlreadyEnrolled: enrolledCourseIds.has(item.courseId._id.toString()), // مهم جداً للـ UI
     }));
 
@@ -67,15 +66,15 @@ export class EnrollmentService {
     const courseIdObj = new Types.ObjectId(dto.courseId);
 
     const student = await this.userRepository.findById(studentIdObj);
-    if (!student)
-      throw new NotFoundException('Student not found');
-    
+    if (!student) throw new NotFoundException('Failed to load Student profile');
+
+
     // 4. جيب تفاصيل الكورس (عشان الساعات والتدريب)
     const course = await this.courseRepository.findById(courseIdObj);
     if (!course) {
       throw new NotFoundException('Course not found');
     }
-    
+
     const plan = await this.studyPlanRepository.findOne({
       filter: { academicYear: student.currentYear, semester: dto.semester },
     });
@@ -89,11 +88,11 @@ export class EnrollmentService {
       (c) => c.courseId.toString() === courseIdObj.toString()
     );
 
-    if (!planCourseData) {
-      throw new BadRequestException('Invalid course selection. This course is not in your study plan.');
-    }
+    // if (!planCourseData) {
+    //   throw new BadRequestException('Invalid course selection. This course is not in your study plan.');
+    // }
 
-    // 3. تأكد إنه مش مسجلها من قبل (منع التكرار)
+    // ?3. تأكد إنه مش مسجلها من قبل (منع التكرار)
     const isAlreadyEnrolled = await this.enrollmentRepository.findOne({
       filter: {
         studentId: studentIdObj,
@@ -107,28 +106,38 @@ export class EnrollmentService {
       throw new BadRequestException('You are already enrolled in this course.');
     }
 
+   const trainingCodes = ['CS111', 'CS222', 'CS333', 'CS444'];
+    const isTrainingCourse = trainingCodes.includes(course.code);
 
-
-
-
-    const newEnrollment = await this.enrollmentRepository.create({
+    // 5. إنشاء التسجيل في قاعدة البيانات
+    await this.enrollmentRepository.create({
       studentId: studentIdObj,
       courseId: courseIdObj,
-      professorId: planCourseData.professorId, // الدكتور من الخطة
+      professorId: planCourseData?.professorId, // الدكتور من الخطة
       academicYear: student.currentYear,
       semester: dto.semester,
       summerReason: SummerReasonEnum.NONE,
       attemptCount: 1,
       hasPenalty: false,
       creditHours: course.creditHours,
-      isTraining: course.isTraining,
-      enrollmentStatus:EnrollmentStatusEnum.ACTIVE,
+      isTraining: isTrainingCourse, // حفظناها بناءً على الكود
     });
-    // ==========================================
+
+    // 6. تجهيز الداتا اللي هترجع للـ Frontend زي ما طلبتي بالظبط
+    const responseData = {
+      studentId: studentIdObj,
+      courseId: courseIdObj,
+      professorId: planCourseData?.professorId,
+      academicYear: student.currentYear,
+      semester: dto.semester,
+      creditHours: course.creditHours,
+      ...(isTrainingCourse && { isTraining: true }), // بترجع true بس لو هي مادة تدريب
+      enrollmentStatus: EnrollmentStatusEnum.ACTIVE,
+    };
 
     return {
       message: 'Course added successfully to your schedule.',
-      enrollment: newEnrollment,
+      enrollment: responseData,
     };
   }
 
@@ -136,9 +145,10 @@ export class EnrollmentService {
   // 3. تأكيد التسجيل النهائي (لما الطالب يضغط Confirm Registration)
   // ==========================================
   async confirmRegistration(studentId: string, semester: SemesterEnum) {
-    const studentIdObj = new Types.ObjectId(studentId);
-    const student = await this.userRepository.findById(studentIdObj);
+
+    const student = await this.userRepository.findById(new Types.ObjectId(studentId));
     if (!student) throw new NotFoundException('Student not found');
+
 
     const plan = await this.studyPlanRepository.findOne({
       filter: {
@@ -149,16 +159,16 @@ export class EnrollmentService {
 
     if (!plan) throw new BadRequestException('Plan not found.');
 
+   
     // 1. عدّ المواد اللي مسجلها فعلاً في الداتا بيز
     const registeredCount = await this.enrollmentRepository.count({
-      filter: {
-        studentId: studentIdObj,
+      
+        studentId: new Types.ObjectId(studentId),
         academicYear: student.currentYear,
         semester: semester,
         enrollmentStatus: EnrollmentStatusEnum.ACTIVE,
-      }
+      
     });
-
     const requiredCount = plan.courses.length; // 5
 
     if (registeredCount < requiredCount) {
@@ -168,9 +178,9 @@ export class EnrollmentService {
       );
     }
 
-   
-    return { 
-      message: 'Registration finalized successfully.' 
+    return {
+      message: 'Registration finalized successfully.',
+      enrollmentStatus: EnrollmentStatusEnum.COMPLETED
     };
   }
 
@@ -178,39 +188,35 @@ export class EnrollmentService {
   // ==========================================
   // عرض الجدول (View Schedule)
   // ==========================================
-  async getMySchedule(studentId: string, semester: string) {
-    const studentIdObj = new Types.ObjectId(studentId);
+async getMySchedule(studentId: string, semester: string) {
 
-    // 1. جيب سجلات التسجيل اللي لسه Active في الترم ده
+    // 1. هنجيب سجلات التسجيل بالشروط المباشرة عشان الـ Repo ميضربش Error
     const enrollments = await this.enrollmentRepository.find({
-      filter: {
-        studentId: studentIdObj,
-        semester: semester, // 'FALL' أو 'SPRING' أو 'SUMMER'
-      },
-      populate: [
-        {
-          path: 'courseId',
-          select: 'name code creditHours isTraining' // جيب بيانات المادة الأساسية
-        },
-        {
-          path: 'professorId',
-          select: 'fullName' // جيب اسم الدكتور
-        }
-      ]
+      studentId: new Types.ObjectId(studentId),
+      semester: semester,
     });
 
-    // 2. ترتيب الداتا للواجهة (نظف الشكل)
-    const schedule = enrollments.map((enrollment: any) => ({
-      enrollmentId: enrollment._id,
-      courseId: enrollment.courseId?._id,
-      courseCode: enrollment.courseId?.code,
-      courseName: enrollment.courseId?.name,
-      creditHours: enrollment.courseId?.creditHours,
-      isTraining: enrollment.courseId?.isTraining || false, // عشان يميز لو هي مادة تدريب في الصيف
-      professorName: enrollment.professorId?.fullName,
-    }));
+    // 2. هنجيب تفاصيل الكورسات والدكاترة يدوياً (Manual Population)
+    const schedule = await Promise.all(
+      enrollments.map(async (enrollment: any) => {
+        // بنستخدم الـ Repositories المتاحة عشان نجيب الداتا
+        const course = await this.courseRepository.findById(enrollment.courseId);
+        // افترضت إنك بتجيبي الدكتور من userRepository
+        const professor = await this.userRepository.findById(enrollment.professorId);
 
-    // 3. حساب مجموع الساعات (مفيد للواجهة)
+        return {
+          enrollmentId: enrollment._id,
+          courseId: course?._id,
+          courseCode: course?.code,
+          courseName: course?.name,
+          creditHours: course?.creditHours,
+          isTraining: course?.isTraining || false, 
+          professorName: professor?.fullName, // أو الاسم حسب ما متسجل في الموديل
+        };
+      })
+    );
+
+    // 3. حساب مجموع الساعات
     const totalCreditHours = schedule.reduce((sum, course) => sum + (course.creditHours || 0), 0);
 
     return {
@@ -220,9 +226,5 @@ export class EnrollmentService {
       courses: schedule,
     };
   }
-
-
-
-
 
 }

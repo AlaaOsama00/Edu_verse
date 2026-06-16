@@ -140,5 +140,14 @@ async findOneAndUpdate({
   ): Promise<any> {
     return this.model.updateMany(filter, update);
   }
+
+  async bulkWrite(operations: any[]) {
+    // this.model هو الـ Mongoose Model الأصلي المحقون داخل الـ Repository
+    return await this.model.bulkWrite(operations);
+  }
+
+   async aggregate(pipeline: any[]): Promise<any[]> {
+    return this.model.aggregate(pipeline).exec();
+  }
 }
 

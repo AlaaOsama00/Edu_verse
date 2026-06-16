@@ -37,6 +37,9 @@ export class User {
   @Prop({ type: String, enum: AcademicYearEnum})
   currentYear: AcademicYearEnum; // 4 (Senior)
 
+  @Prop({ type: Boolean, default: false })
+  isRepeating: boolean; // هل هو معيد سنة؟
+  
   @Prop({
     type: {
       code: { type: String },

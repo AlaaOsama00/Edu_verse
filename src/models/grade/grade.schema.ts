@@ -18,26 +18,28 @@ export class Grade {
   courseId: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Assessment', required: true, index: true })
-  assessmentId: Types.ObjectId;
+  assessmentId: Types.ObjectId;//ASS1  ASS2  MID  FINAL PRACTICAL
 
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
-  gradedByProf: Types.ObjectId;
+  gradedByProf: Types.ObjectId; // PROF
 
   // ====== بيانات التسليم (جديد) ======
 
   @Prop({ type: String, enum: SubmissionStatusEnum, default: SubmissionStatusEnum.NOT_SUBMITTED })
-  submissionStatus: SubmissionStatusEnum;
+  submissionStatus: SubmissionStatusEnum;  // NOT_SUBMITTED = 'not_submitted', SUBMITTED = 'submitted',MISSING = 'missing'
+       
 
   @Prop({ type: Date, default: null })
-  submittedAt: Date | null;      // وقت التسليم الفعلي
+  submittedAt: Date ;      
 
 
   // ====== بيانات التصحيح ======
   @Prop({ type: Number,min:0, default:null})
-  marks: number;
+  mark: number;
 
   @Prop({ type: String, enum: GradeStatusEnum, default: GradeStatusEnum.PENDING })
-  gradeStatus: GradeStatusEnum;
+  gradeStatus: GradeStatusEnum; //PENDING = 'pending', GRADED = 'graded'
+    
 }
 
 export const GradeSchema = SchemaFactory.createForClass(Grade);

@@ -1,5 +1,4 @@
-import { AcademicYearEnum, UserRolesEnum } from '@utils/enum';
-import { IsEmail, IsEnum, IsNotEmpty,IsString, IsStrongPassword, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsNotEmpty,IsString, IsStrongPassword } from 'class-validator';
 
 export class SignInDTO {
   @IsString()

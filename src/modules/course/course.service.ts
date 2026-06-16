@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Delete } from '@nestjs/common';
 import { IMarks } from '@interfaces/IMarks';
 import { Types } from 'mongoose';
-import { AcademicYearEnum, SemesterEnum, UserRolesEnum } from '@utils/enum';
+import { SemesterEnum, UserRolesEnum } from '@utils/enum';
 import type { IPagination } from '@decorators/pagination.decorator';
 import { CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
 import { CreateCourseDto } from './dto/createCourse.dto';
@@ -19,54 +19,56 @@ export class CourseService {
 
   async createCourse(dto: CreateCourseDto) {
 
-    const course = await this.courseRepo.findOne({ filter: { code: dto.code } });
-    if (course) throw new NotFoundException('Course already exists');
+   const { professorEmail, ...courseDataWithoutEmail } = dto;
 
-    if (dto.isTraining && dto.semester != SemesterEnum.SUMMER)
-      throw new NotFoundException('Training courses can only be offered in the summer semester');
-
-    const marksDistribution: IMarks = {
-      midterm: 20,
-      final: 40,
-      practical: 20,
-      assignment1: 10,
-      assignment2: 10,
-    };
-
-    const newCourse = await this.courseRepo.create({
-      name: dto.name,
-      code: dto.code,
-      description: dto.description,
-      creditHours: dto.creditHours,
-      isTraining: dto.isTraining || false,
-      marksDistribution: marksDistribution,
-    });
-
-    const Professor = await this.userRepository.findById(dto.professorId);
-    if (!Professor || Professor.role !== UserRolesEnum.PROFESSOR) {
-      throw new NotFoundException('Professor not found');
+    // 1. البحث عن الأستاذ بالإيميل
+    const professor = await this.userRepository.findOne({ filter: { email: professorEmail } });
+    if (!professor) {
+      throw new NotFoundException(`لم يتم العثور على Professor يحمل الإيميل: ${professorEmail}`);
     }
+
+    // 2. تجهيز بيانات الكورس
+    const courseToInsert: any = { ...courseDataWithoutEmail };
+
+    // التحقق: إذا لم يكن تدريباً، نضيف توزيع الدرجات الافتراضي
+    if (!dto.isTraining) {
+      courseToInsert.marksDistribution = {
+        midterm: 20,
+        final: 40,
+        practical: 20,
+        assignment1: 10,
+        assignment2: 10,
+      };
+    }
+
+    // 3. إنشاء الكورس في قاعدة البيانات
+    // استخدمي create بدلاً من insertMany لأننا نتعامل مع كورس واحد
+    const newCourse = await this.courseRepo.create(courseToInsert);
+
+    // 4. تحديث الخطة الدراسية (Study Plan)
     await this.studyPlanRepository.findOneAndUpdate({
       filter: {
         academicYear: dto.academicYear,
-        semester: dto.semester
+        semester: dto.semester,
       },
       update: {
         $addToSet: {
           courses: {
             courseId: newCourse._id,
-            professorId: new Types.ObjectId(dto.professorId),
-            //ابوس ايدك ما تغيريها لستريج غيريها في اي حته الا هنا 
+            professorId: new Types.ObjectId(professor._id), // الحفاظ عليه كـ ObjectId
           },
         },
       },
       options: {
         upsert: true,
-        new: true
-      }
+        new: true,
+      },
     });
 
-    return { message: 'Course created successfully' };
+        return { 
+          message: 'Course created successfully' ,
+          courseData: newCourse
+        };
   }
 
   async getAllCourses(pagination: IPagination, search?: string) {
@@ -177,11 +179,11 @@ export class CourseService {
   }
 
   async deleteCourseById(_id: Types.ObjectId) {
-    const deletedCourse = await this.courseRepo.deleteOne({ filter: { _id } });
-    if (!deletedCourse) throw new NotFoundException('Course not found');
+    const deletedCourse = await this.courseRepo.findOneAndDelete({ filter: { _id } });
+    const courseInStudyPlan = await this.studyPlanRepository.findOneAndDelete({ filter: { 'courses.courseId': _id } });
+    if (!deletedCourse&&!courseInStudyPlan) throw new NotFoundException('Course not found');
     return { message: 'Course deleted successfully' };
   }
-
 
 
 }

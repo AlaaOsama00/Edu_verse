@@ -15,8 +15,8 @@ class SingleStudentGrade {
 export class BulkGradeDto {
     @IsNotEmpty()
     @IsString()
-    courseId: string; // هحطها في الـ Param مش Body، بس عشان الـ Swagger نظيف
-
+    courseId: string; 
+    
     @IsNotEmpty()
     @IsString()
     assessmentId: string;
@@ -24,5 +24,5 @@ export class BulkGradeDto {
     @IsArray()
     @ArrayMinSize(1)
     @ValidateNested({ each: true })
-    students: SingleStudentGrade[];
+    studentsGrade: SingleStudentGrade[];
 }

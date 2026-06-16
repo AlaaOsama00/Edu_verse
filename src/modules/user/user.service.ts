@@ -1,5 +1,5 @@
 import { UserRepository } from '@models/index';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRolesEnum } from '@utils/enum'; // عدل المسار لو مختلف
 import { hashPassword } from '@utils/helpers';
 import { CreateUserDto } from './dto/create-user-dto';
@@ -127,4 +127,43 @@ export class UserService {
             projection: { password: 0, __v: 0 }
         });
     }
+
+    async insertManyUsers(usersData: any[]) {
+
+        const usersWithHashedPasswords = await Promise.all(
+            usersData.map(async (user) => {
+                const userCopy = { ...user };
+
+                if (userCopy.password) {
+                    // 2. استخدام دالتك الجاهزة لتشفير الباسوورد
+                    userCopy.password = await hashPassword(userCopy.password);
+                }
+
+                return userCopy;
+            })
+        );
+
+        return await this.userRepository.insertMany(usersWithHashedPasswords);
+    }
+
+
+    // البروفايل
+    async getUserProfile(currentUser: any, targetUserId: string) {
+
+        if (currentUser.role !== UserRolesEnum.ADMIN && currentUser.userId !== targetUserId) {
+            throw new ForbiddenException('You do not have permission to access this profile.');
+        }
+
+
+        const userProfile = await this.userRepository.findById(targetUserId);
+
+        if (!userProfile) throw new NotFoundException('User not found');
+
+
+        // 3. استبعاد البيانات الحساسة (زي الباسورد)
+        const { password,_id,__v,emailOtp, ...rest } = userProfile.toObject ? userProfile.toObject() : userProfile;
+
+        return rest;
+    }
+
 }
