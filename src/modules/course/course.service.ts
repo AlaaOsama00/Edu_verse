@@ -40,6 +40,7 @@ export class CourseService {
         assignment2: 10,
       };
     }
+    
 
     // 3. إنشاء الكورس في قاعدة البيانات
     // استخدمي create بدلاً من insertMany لأننا نتعامل مع كورس واحد

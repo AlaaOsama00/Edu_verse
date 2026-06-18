@@ -1,5 +1,5 @@
 import { AcademicYearEnum, SemesterEnum } from '@utils/enum';
-import { IsString, IsNumber, IsEnum, Min, IsNotEmpty, IsBoolean, IsOptional, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments, Validate } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsNotEmpty, IsBoolean, IsOptional, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments, Validate } from 'class-validator';
 
 
 
@@ -9,7 +9,7 @@ export class MinCreditHoursConstraint implements ValidatorConstraintInterface {
     const dto = args.object as CreateCourseDto;
 
     // إذا كان isTraining يساوي true، فإن الحد الأدنى هو 0
-    if (dto.isTraining === true) {
+    if (dto.isTraining === true||dto.semester==SemesterEnum.SUMMER) {
       return creditHours == 0;
     }
 
@@ -18,7 +18,7 @@ export class MinCreditHoursConstraint implements ValidatorConstraintInterface {
 
   defaultMessage(args: ValidationArguments) {
     const dto = args.object as CreateCourseDto;
-    const minRequired = dto.isTraining === true ? 0 : 1;
+    const minRequired = dto.isTraining === true||dto.semester==SemesterEnum.SUMMER ? 0 : 1;
     return `creditHours must not be less than ${minRequired}`;
   }
 }

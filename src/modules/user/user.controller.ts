@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { UserRolesEnum } from '@utils/enum';
 import { Auth } from '@decorators/authDecorator';
 import { UserService } from './user.service';
@@ -32,22 +32,6 @@ export class UserController {
         return this.userService.getAllUsersByRole(role);
     }
     //____________________________
-    @Post('insert-many')
-    async insertMany(@Body() usersData: any[]) {
-
-        const insertedUsers = await this.userService.insertManyUsers(usersData);
-
-        // 3. إرجاع الرد بنجاح
-        return {
-            success: true,
-            message: 'Users inserted successfully',
-            count: insertedUsers.length,
-            data: insertedUsers,
-        };
-
-    }
-    //_________________________________
-
 
 
     // 1. بيانات الطالب والسنة الحالية
@@ -58,5 +42,20 @@ export class UserController {
        
         return this.userService.getUserProfile(currentUser, idToFetch);
     }
+
+    @Get('search-students')
+    async searchStudents(@Query('q') query: string) {
+        // هنا الدالة هتبحث في الاسم، الإيميل، والـ studentId عشان بعتنا الـ Role
+        const results = await this.userService.searchUsers(query, UserRolesEnum.STUDENT);
+        return { success: true, count: results.length, data: results };
+    }
+
+    @Get('search-professors')
+    async searchProfessors(@Query('q') query: string) {
+        // هنا الدالة هتبحث في الاسم والإيميل بس
+        const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR);
+        return { success: true, count: results.length, data: results };
+    }
+
 
 }
