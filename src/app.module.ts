@@ -11,7 +11,7 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
 import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
 import { UserModule } from './modules/user/user.module';
 import { AcademicRecordModule } from './modules/academicRecord/academicRecord.module';
-import { CloudinaryModule } from './modules/multer/cloudinary.module';
+import { CloudinaryModule } from './common/multer/cloudinary.module';
 
 @Module({
   imports: [

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Delete } from '@nestjs/common';
+import { Injectable, NotFoundException, Delete, ConflictException } from '@nestjs/common';
 import { IMarks } from '@interfaces/IMarks';
 import { Types } from 'mongoose';
 import { SemesterEnum, UserRolesEnum } from '@utils/enum';
@@ -19,12 +19,12 @@ export class CourseService {
 
   async createCourse(dto: CreateCourseDto) {
 
-   const { professorEmail, ...courseDataWithoutEmail } = dto;
+    const { professorEmail, ...courseDataWithoutEmail } = dto;
 
-    // 1. البحث عن الأستاذ بالإيميل
-    const professor = await this.userRepository.findOne({ filter: { email: professorEmail } });
-    if (!professor) {
-      throw new NotFoundException(`لم يتم العثور على Professor يحمل الإيميل: ${professorEmail}`);
+    const professor = await this.userRepository.findByEmail(professorEmail)
+    const course = await this.courseRepo.find({ filter: dto.code })
+    if (course) {
+      throw new ConflictException('course already exists');
     }
 
     // 2. تجهيز بيانات الكورس
@@ -55,7 +55,7 @@ export class CourseService {
         $addToSet: {
           courses: {
             courseId: newCourse._id,
-            professorId: new Types.ObjectId(professor._id), // الحفاظ عليه كـ ObjectId
+            professorId: new Types.ObjectId(professor?._id), // الحفاظ عليه كـ ObjectId
           },
         },
       },
@@ -65,10 +65,10 @@ export class CourseService {
       },
     });
 
-        return { 
-          message: 'Course created successfully' ,
-          courseData: newCourse
-        };
+    return {
+      message: 'Course created successfully',
+      courseData: newCourse
+    };
   }
 
   async getAllCourses(pagination: IPagination, search?: string) {
@@ -102,8 +102,8 @@ export class CourseService {
   async findCourseById(id: Types.ObjectId) { // Profile
     const course = await this.courseRepo.findOne({ filter: { _id: id } });
     if (!course) throw new NotFoundException('Course not found');
-    
-    
+
+
     const result = await this.courseRepo.aggregate([
       // 1. فلتر الكورس اللي عايزه
       { $match: { _id: new Types.ObjectId(id) } },
@@ -181,7 +181,7 @@ export class CourseService {
   async deleteCourseById(_id: Types.ObjectId) {
     const deletedCourse = await this.courseRepo.findOneAndDelete({ filter: { _id } });
     const courseInStudyPlan = await this.studyPlanRepository.findOneAndDelete({ filter: { 'courses.courseId': _id } });
-    if (!deletedCourse&&!courseInStudyPlan) throw new NotFoundException('Course not found');
+    if (!deletedCourse && !courseInStudyPlan) throw new NotFoundException('Course not found');
     return { message: 'Course deleted successfully' };
   }
 

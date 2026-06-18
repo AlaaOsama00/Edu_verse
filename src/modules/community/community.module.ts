@@ -1,8 +1,12 @@
-/*import { MongooseModule } from '@nestjs/mongoose';
+import { MongooseModule } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Post,Club, ClubSchema, ClubResource, ClubResourceSchema, ClubMembership, ClubMembershipSchema, PostSchema, CommentSchema, User, UserSchema, ClubRepository, ClubResourceRepository, ClubMembershipRepository, PostRepository, CommentRepository, UserRepository } from '@models/index';
 import { ClubService } from './services/club.service';
 import { Module } from '@nestjs/common';
+import { CommunityController } from './community.controller';
+import { ClubMembershipService } from './services/clubMembership.service';
+import { PostService } from './services/post.service';
+import { CommentService } from './services/comment.service';
 
 
 
@@ -20,11 +24,7 @@ import { Module } from '@nestjs/common';
   ],
 
   controllers: [
-    ClubController,
-    ClubResourceController,   // POST /clubs/:clubId/resources  → Admin فقط
-    ClubMembershipController, // POST /clubs/:clubId/join       → أي طالب
-    PostController,           // POST /clubs/:clubId/posts      → Members فقط
-    CommentController,        // POST /posts/:postId/comments   → Members فقط
+  CommunityController       // POST /posts/:postId/comments   → Members فقط
   ],
 
   providers: [
@@ -38,7 +38,6 @@ import { Module } from '@nestjs/common';
 
     // ── Services ──
     ClubService,
-    ClubResourceService,
     ClubMembershipService,
     PostService,
     CommentService,
@@ -47,4 +46,4 @@ import { Module } from '@nestjs/common';
     JwtService,
   ],
 })
-export class CommunityModule {}*/
+export class CommunityModule {}

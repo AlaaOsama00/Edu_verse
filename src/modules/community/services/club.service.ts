@@ -1,4 +1,4 @@
-/*import { ClubRepository, ClubMembershipRepository, UserRepository } from '@models/index';
+import { ClubRepository, UserRepository } from '@models/index'
 import {
     Injectable,
     NotFoundException,
@@ -8,14 +8,13 @@ import {
 import { Types } from 'mongoose';
 import { CreateClubDto } from '../Dto/club/create-club-dto';
 import { UserRolesEnum } from '@utils/enum';
-import { ExploreClubsDto } from '../Dto/club/get-clubs-dto';
+import { UpdateClubDto } from '../Dto/club/update-club-dto';
 
 
 @Injectable()
 export class ClubService {
     constructor(
         private readonly clubRepo: ClubRepository,
-        private readonly membershipRepo: ClubMembershipRepository,
         private readonly userRepository: UserRepository,
     ) { }
 
@@ -34,7 +33,6 @@ export class ClubService {
             ...dto,
             createdBy: new Types.ObjectId(adminId),
             membersCount: 0,
-            activeTracksCount: 0,
             rating: 0,
         });
 
@@ -42,50 +40,17 @@ export class ClubService {
     }
 
     // ==========================================
-    // Explore Page — جيب كل الـ clubs مع فلترة
-    //هيسرش ويطلع الكلب ويقوله هو ميمبر ول لا عشان يشوف الزرار هيبقي (joined-join)
-    // ==========================================
-    async searchOnClubs(dto: ExploreClubsDto, studentId: string) {
-        
-        const filter: any = { isActive: true };
-
-        // فلترة بالـ tag لو موجود
-        if (dto.tag) {
-            filter.tags = dto.tag;
-        }
-
-        // بحث بالاسم أو الوصف
-        if (dto.search) {
-            filter.$text = { $search: dto.search };
-        }
-
-        const clubs = await this.clubRepo.find(filter);
-
-        // جيب الـ clubs اللي الطالب ده منضم ليها عشان نعرف نعرض Join أو Joined
-        const studentObjId = new Types.ObjectId(studentId);
-        const myMemberships = await this.membershipRepo.find({
-            filter: { studentId: studentObjId },
-        });
-
-        const myClubIds = new Set(
-            myMemberships.map((m) => m.clubId.toString()),
-        );
-
-        // نضيف flag على كل club — هل الطالب ده member فيه ولا لا
-        return clubs.map((club) => ({
-            ...club.toObject(),
-            isJoined: myClubIds.has(club._id.toString()),
-        }));
-    }
-
-    // ==========================================
     // جيب club واحد بالتفاصيل
     // ==========================================
-    async getClubById(clubId: string) {
+    async viweClubInfo(userId: string, clubId: string) {
         const club = await this.clubRepo.findById(new Types.ObjectId(clubId));
+        const user = await this.userRepository.findById(new Types.ObjectId(userId))
+        if (!club || !user) {
+            throw new NotFoundException('Not Found');
+        }
 
-        if (!club) {
-            throw new NotFoundException('Doesnot Exist');
+        if (user.role !== UserRolesEnum.STUDENT && user.role !== UserRolesEnum.ADMIN) {
+            throw new UnauthorizedException("Unauthorized")
         }
 
         return club;
@@ -94,24 +59,25 @@ export class ClubService {
     // ==========================================
     // تعديل Club (Admin / Professor فقط)
     // ==========================================
-    // async updateClub(clubId: string, dto: Partial<CreateClubDto>, adminId: string) {
-    //     const club = await this.clubRepo.findById(new Types.ObjectId(clubId));
+    async updateClubInfo(adminId: string, dto: UpdateClubDto, clubId: string) {
+        const club = await this.clubRepo.findById(new Types.ObjectId(clubId));
+        const user =await this.userRepository.findById(new Types.ObjectId(adminId))
 
-    //     if (!club) {
-    //         throw new NotFoundException('Not Found');
-    //     }
+        if (!club||!user) {
+            throw new NotFoundException('Not Found');
+        }
 
-    //     // بس الـ admin اللي أنشأه يقدر يعدله
-    //     if (club.createdBy.toString() !== adminId) {
-    //         throw new ForbiddenException('مش مسموحلك تعدل الـ Club ده');
-    //     }
+        // بس الـ admin اللي أنشأه يقدر يعدله
+        if (user.role!=UserRolesEnum.ADMIN) {
+            throw new ForbiddenException('Forbidden');
+        }
 
-    //     return this.clubRepo.findByIdAndUpdate({
-    //         id: clubId,
-    //         update: { $set: dto },
-    //         options: { new: true },
-    //     });
-    // }
+        return this.clubRepo.findByIdAndUpdate({
+            id: clubId,
+            update: { $set: dto },
+            options: { new: true },
+        });
+    }
 
     // ==========================================
     // Helper داخلي — بيستخدمه ClubMembershipService
@@ -123,4 +89,4 @@ export class ClubService {
             update: { $inc: { membersCount: value } },
         });
     }
-}*/
+}
