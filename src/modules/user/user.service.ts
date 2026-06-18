@@ -1,6 +1,6 @@
 import { UserRepository } from '@models/index';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRolesEnum } from '@utils/enum'; // عدل المسار لو مختلف
+import { ActivationEnum, UserRolesEnum } from '@utils/enum'; // عدل المسار لو مختلف
 import { hashPassword } from '@utils/helpers';
 import { CreateUserDto } from './dto/create-user-dto';
 import { UpdateUserDto } from './dto/updateUserDto';
@@ -125,7 +125,7 @@ export class UserService {
         if (role) {
             users = users.filter((u: any) => u.role === role);
         }
-        else{
+        else {
             throw new ForbiddenException()
         }
 
@@ -146,47 +146,58 @@ export class UserService {
 
 
         // 3. استبعاد البيانات الحساسة (زي الباسورد)
-        const { password,_id,__v,emailOtp, ...rest } = userProfile.toObject ? userProfile.toObject() : userProfile;
+        const { password, _id, __v, emailOtp, ...rest } = userProfile.toObject ? userProfile.toObject() : userProfile;
 
         return rest;
     }
 
-async searchUsers(searchTerm: string, role?: string) {
-        if (!searchTerm) {
-            return [];
-        }
 
-        // 1. تجهيز الكلمة للبحث
-        const searchRegex = { $regex: searchTerm, $options: 'i' };
+   async searchUsers(searchTerm?: string, role?: string, status?: ActivationEnum | string) {
+        
+        const filter: any = {};
 
-        // 2. الحقول الأساسية اللي موجودة عند أي حد
-        const searchConditions: any[] = [
-            { name: searchRegex },
-            { email: searchRegex },
-        ];
-
-        // 3. لو بنبحث عن طالب، نضيف حقل الـ studentId للـ conditions
-        if (role === UserRolesEnum.STUDENT) {
-            searchConditions.push({ studentId: searchRegex });
-        }
-
-        // 4. بناء الـ Filter النهائي
-        const filter: any = {
-            $or: searchConditions,
-        };
-
-        // خطوة إضافية منطقية: لو ممررة role، الاحسن نفلتر النتيجة نفسها عشان ترجع النوع ده بس
         if (role) {
-            filter.role = role; 
+            filter.role = role;
         }
 
+        // استخدام الـ Enum هنا
+        if (status && status.toUpperCase() !== 'ALL') {
+            // حولنا الكلمة اللي جاية لـ كابيتال، وأكدنا للـ TypeScript إنها من نوع ActivationEnum
+            filter.status = status.toUpperCase() as ActivationEnum;
+        }
+
+        if (searchTerm) {
+            const isNumeric = /^\d+$/.test(searchTerm);
+            const startsWithRegex = { $regex: '^' + searchTerm, $options: 'i' };
+
+            if (isNumeric) {
+                if (role === UserRolesEnum.STUDENT) {
+                    filter.academicId = startsWithRegex;
+                }
+            } else {
+                filter.$or = [
+                    { fullName: startsWithRegex },
+                    { email: startsWithRegex },
+                ];
+            }
+        }
         const users = await this.userRepository.find(
             filter, 
-            { password: 0 }, 
+            { 
+                academicId: 1,
+                fullName: 1,
+                email: 1,
+                role: 1,
+                department: 1,
+                status: 1,
+                _id: 0 
+            }, 
             { limit: 20 }    
         );
 
         return users;
     }
 
+
+       
 }

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { UserRolesEnum } from '@utils/enum';
+import { ActivationEnum, UserRolesEnum } from '@utils/enum';
 import { Auth } from '@decorators/authDecorator';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
@@ -34,26 +34,33 @@ export class UserController {
     //____________________________
 
 
-    // 1. بيانات الطالب والسنة الحالية
     @Auth()
     @Get(['profile', 'profile/:id'])
     async getMyProfile(@CurrentUser() currentUser: any, @Param('id') targetUserId?: string) {
         const idToFetch = targetUserId || currentUser;
-       
+
         return this.userService.getUserProfile(currentUser, idToFetch);
     }
 
     @Get('search-students')
-    async searchStudents(@Query('q') query: string) {
-        // هنا الدالة هتبحث في الاسم، الإيميل، والـ studentId عشان بعتنا الـ Role
-        const results = await this.userService.searchUsers(query, UserRolesEnum.STUDENT);
-        return { success: true, count: results.length, data: results };
+    @Auth(UserRolesEnum.ADMIN)
+    async searchStudents(
+        @Query('q') query?: string,
+        @Query('status') status?: ActivationEnum | 'ALL'
+    ) {
+        const results = await this.userService.searchUsers(query, UserRolesEnum.STUDENT, status);
+        return {
+            success: true,
+            count: results.length,
+            data: results
+        };
     }
 
     @Get('search-professors')
-    async searchProfessors(@Query('q') query: string) {
+    @Auth(UserRolesEnum.ADMIN)
+    async searchProfessors(@Query('q') query: string, @Query('status') status?: ActivationEnum | 'ALL') {
         // هنا الدالة هتبحث في الاسم والإيميل بس
-        const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR);
+        const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR,status);
         return { success: true, count: results.length, data: results };
     }
 
