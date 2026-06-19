@@ -5,6 +5,8 @@ import { Assessment, AssessmentSchema } from '@models/assessment/assessment.sche
 import { AssessmentRepository, Course, CourseRepository, CourseSchema, Enrollment, EnrollmentRepository, EnrollmentSchema, Grade, GradeRepository, GradeSchema, StudyPlan, StudyPlanRepository, StudyPlanSchema, User, UserRepository, UserSchema } from '@models/index';
 import { AssessmentService } from './assessment.service';
 import { AuthModule } from '../auth/auth.module';
+import { CloudinaryService } from 'src/common/multer/cloudinary.service';
+import { CommunityGateway } from '../community/community.gateway';
 @Module({
   imports: [
     // سجل الـ Schema في المونجووز
@@ -26,7 +28,9 @@ import { AuthModule } from '../auth/auth.module';
     GradeRepository,
     StudyPlanRepository,
     UserRepository, // <--- ضيفه هنا
-      CourseRepository,
+    CourseRepository,
+    CloudinaryService,
+    CommunityGateway
   ],
   exports: [AssessmentService], // لو موديل تاني عاوز يستخدمه
 })

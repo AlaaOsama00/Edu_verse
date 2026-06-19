@@ -151,7 +151,7 @@ export class GradeService {
     throw new BadRequestException(`Marks cannot exceed ${assessment.maxMark}`);
   }
 
-  if (assessment.createdByProf.toString() !== professorId.toString()) {
+  if (assessment.createdBy.toString() !== professorId.toString()) {
     // استخدمنا Forbidden لأنها أدق من BadRequest في حالات الصلاحيات
     throw new ForbiddenException('You are not authorized to edit this grade.'); 
   }
@@ -200,7 +200,7 @@ export class GradeService {
   async bulkUploadGrades(professorId: string, dto: BulkGradeDto) {
     const assessment = await this.assessmentRepo.findOne({ filter: { _id: dto.assessmentId } });
     if (!assessment) throw new BadRequestException('Assessment not found');
-    if (assessment.createdByProf.toString() !== professorId.toString()) throw new BadRequestException('Not authorized.');
+    if (assessment.createdBy.toString() !== professorId.toString()) throw new BadRequestException('Not authorized.');
 
     const courseId = assessment.courseId.toString();
     const assessmentType = assessment.type;

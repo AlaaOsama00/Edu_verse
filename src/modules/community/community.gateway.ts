@@ -111,4 +111,20 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     async emitPostUnpinned(clubId: string, postId: string) {
         await this.server.to(this.roomName(clubId)).emit('postUnpinned', { postId });
     }
+
+    @SubscribeMessage('joinUserRoom')
+    async handleJoinUserRoom(
+        @ConnectedSocket() client: Socket, 
+        @MessageBody() userId: string
+    ) {
+        await client.join(`user:${userId}`);
+        this.logger.log(`Client ${client.id} joined global user room ${userId}`);
+    }
+
+    // ==========================================
+    // الدالة دي اللي هنستدعيها من أي Service عشان نبعت إشعار للجرس
+    // ==========================================
+     emitNotificationToUser(userId: string, notification: any) {
+         this.server.to(`user:${userId}`).emit('newBellNotification', notification);
+    }
 }

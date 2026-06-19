@@ -3,7 +3,7 @@ import { Controller, Post, Body, Get, Query } from "@nestjs/common";
 import { CurrentUser } from "@decorators/userDecorator";
 import { EnrollmentService } from './enrollment.service';
 import { Auth } from '@decorators/authDecorator';
-import { AddSingleCourseDto, ConfirmRegistrationDto, GetAvailableQueryDto ,} from './dto';
+import { AddCourseDto, GetAvailableQueryDto ,} from './dto';
 
 @Controller('Enrollments')
 export class EnrollmentController {
@@ -27,14 +27,14 @@ export class EnrollmentController {
   // ==========================================
   // 2. إضافة مادة واحدة (لما يدوس على زرار Add)
   // ==========================================
-  @Post('add-course')
-  @Auth(UserRolesEnum.STUDENT)
-  async addSingleCourse(
-    @CurrentUser('_id') userId: string,
-    @Body() dto: AddSingleCourseDto, // فيه courseId و semester
-  ) {
-    return this.enrollmentService.addSingleCourse(userId, dto);
-  }
+  // @Post('add-course')
+  // @Auth(UserRolesEnum.STUDENT)
+  // async addSingleCourse(
+  //   @CurrentUser('_id') userId: string,
+  //   @Body() dto: AddSingleCourseDto, // فيه courseId و semester
+  // ) {
+  //   return this.enrollmentService.addSingleCourse(userId, dto);
+  // }
 
   // ==========================================
   // 3. تأكيد التسجيل النهائي (آخر خطوة)
@@ -43,9 +43,9 @@ export class EnrollmentController {
   @Auth(UserRolesEnum.STUDENT)
   async confirmRegistration(
     @CurrentUser('_id') userId: string,
-    @Body() dto: ConfirmRegistrationDto, // فيه semester بس
+    @Body() dto: AddCourseDto, // فيه semester بس
   ) {
-    return this.enrollmentService.confirmRegistration(userId, dto.semester);
+    return this.enrollmentService.confirmRegistration(userId, dto);
   }
 
     // ==========================================

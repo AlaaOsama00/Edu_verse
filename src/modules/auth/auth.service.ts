@@ -2,7 +2,7 @@ import { UserRepository } from '@models/user/user.repository';
 import { Injectable, InternalServerErrorException, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { compare, generateOTP, hashPassword } from 'src/common/utiles/helpers';
 import { sendEmail } from 'src/common/utiles/email.utils';
-import { TokenService } from 'src/common/service/token.service';
+import { TokenService } from '@utils/token';
 import { Types } from 'mongoose';
 import { ActivationEnum, UserRolesEnum } from '@utils/enum';
 import { SignInDTO } from './dto/authDto';

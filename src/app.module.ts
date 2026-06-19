@@ -12,6 +12,7 @@ import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
 import { UserModule } from './modules/user/user.module';
 import { AcademicRecordModule } from './modules/academicRecord/academicRecord.module';
 import { CloudinaryModule } from './common/multer/cloudinary.module';
+import { CommunityModule } from './modules/community/community.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CloudinaryModule } from './common/multer/cloudinary.module';
     AcademicRecordModule,
     EnrollmentModule,
     CloudinaryModule,
+    CommunityModule
   ],
   controllers: [AppController],
   providers: [AppService],

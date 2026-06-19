@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { Types } from 'mongoose';
 import { EnrollmentStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
 import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
-import { AddSingleCourseDto } from './dto/add-single-course-dto';
+import { AddCourseDto } from './dto/add-course-dto';
 
 
 
@@ -57,138 +57,106 @@ export class EnrollmentService {
     };
   }
 
-  // ==========================================
-  // 2. إضافة مادة واحدة (لما الطالب يختار مادة من الـ Dropdown)
-  // ==========================================
-  async addSingleCourse(studentId: string, dto: AddSingleCourseDto) {
 
+  // ==========================================
+  // تسجيل كافة مواد الخطة وتأكيدها دفعة واحدة
+  // ==========================================
+  async confirmRegistration(studentId: string, dto: AddCourseDto) {
     const studentIdObj = new Types.ObjectId(studentId);
-    const courseIdObj = new Types.ObjectId(dto.courseId);
 
+    // 1. جلب بيانات الطالب للتأكد من وجوده ومعرفة سنته الدراسية الحالية
     const student = await this.userRepository.findById(studentIdObj);
-    if (!student) throw new NotFoundException('Failed to load Student profile');
+    if (!student) throw new NotFoundException('Student not found');
 
-
-    // 4. جيب تفاصيل الكورس (عشان الساعات والتدريب)
-    const course = await this.courseRepository.findById(courseIdObj);
-    if (!course) {
-      throw new NotFoundException('Course not found');
-    }
-
+    // 2. جلب الخطة الدراسية الخاصة بسنة الطالب والترم الحالي
     const plan = await this.studyPlanRepository.findOne({
-      filter: { academicYear: student.currentYear, semester: dto.semester },
+      filter: {
+        academicYear: student.currentYear,
+        semester: dto.semester,
+      }
     });
-    if (!plan) {
-      throw new BadRequestException('Study plan not found.');
+    if (!plan || !plan.courses || plan.courses.length === 0) {
+      throw new BadRequestException('Study plan not found or contains no courses.');
     }
 
-    // 2. ⚠️ الخطوة دي ممنوع تتشال (التحقق من الـ ID المدخل)
-    // هدور في الأراي بتاع الخطة، لو ملقتهوش، معناها الطالب بعت ID غلط أو خارج الخطة
-    const planCourseData = plan.courses.find(
-      (c) => c.courseId.toString() === courseIdObj.toString()
-    );
-
-    // if (!planCourseData) {
-    //   throw new BadRequestException('Invalid course selection. This course is not in your study plan.');
-    // }
-
-    // ?3. تأكد إنه مش مسجلها من قبل (منع التكرار)
-    const isAlreadyEnrolled = await this.enrollmentRepository.findOne({
+    // 3. التحقق إن الطالب مسجلش قبل كده في الترم ده (عشان نمنع التكرار)
+    const existingEnrollmentsCount = await this.enrollmentRepository.count({
       filter: {
         studentId: studentIdObj,
-        courseId: courseIdObj,
         academicYear: student.currentYear,
         semester: dto.semester,
       }
     });
 
-    if (isAlreadyEnrolled) {
-      throw new BadRequestException('You are already enrolled in this course.');
+    if (existingEnrollmentsCount > 0) {
+      throw new BadRequestException('You have already registered courses for this semester.');
     }
 
-   const trainingCodes = ['CS111', 'CS222', 'CS333', 'CS444'];
-    const isTrainingCourse = trainingCodes.includes(course.code);
+    // 4. استخراج معرفات المواد (IDs) عشان نجيب تفاصيلهم من الداتا بيز (الساعات والكود)
+    const planCourseIds = plan.courses.map(c => c.courseId.toString());
 
-    // 5. إنشاء التسجيل في قاعدة البيانات
-    await this.enrollmentRepository.create({
-      studentId: studentIdObj,
-      courseId: courseIdObj,
-      professorId: planCourseData?.professorId, // الدكتور من الخطة
-      academicYear: student.currentYear,
-      semester: dto.semester,
-      summerReason: SummerReasonEnum.NONE,
-      attemptCount: 1,
-      hasPenalty: false,
-      creditHours: course.creditHours,
-      isTraining: isTrainingCourse, // حفظناها بناءً على الكود
-    });
+    // بندور على أي كورس مبعوت مش موجود في مصفوفة الخطة
+    const invalidCourses = dto.courseId.filter(id => !planCourseIds.includes(id));
+    if (invalidCourses.length > 0) {
+      throw new BadRequestException('Invalid course selection. Some selected courses are not in your study plan.');
+    }
 
-    // 6. تجهيز الداتا اللي هترجع للـ Frontend زي ما طلبتي بالظبط
-    const responseData = {
-      studentId: studentIdObj,
-      courseId: courseIdObj,
-      professorId: planCourseData?.professorId,
-      academicYear: student.currentYear,
-      semester: dto.semester,
-      creditHours: course.creditHours,
-      ...(isTrainingCourse && { isTraining: true }), // بترجع true بس لو هي مادة تدريب
-      enrollmentStatus: EnrollmentStatusEnum.ACTIVE,
-    };
+    if (dto.courseId.length !== planCourseIds.length) {
+      throw new BadRequestException(`Action blocked! You must register exactly ${planCourseIds.length} courses as per your study plan.`);
+    }
 
-    return {
-      message: 'Course added successfully to your schedule.',
-      enrollment: responseData,
-    };
-  }
+    // 5. جلب تفاصيل الكورسات من الـ DB (عشان الساعات وكود المادة)
+    const objectIdsArray = dto.courseId.map(id => new Types.ObjectId(id));
+    const coursesDetails = await Promise.all(
+      objectIdsArray.map(id => this.courseRepository.findById(id))
+    );
 
-  // ==========================================
-  // 3. تأكيد التسجيل النهائي (لما الطالب يضغط Confirm Registration)
-  // ==========================================
-  async confirmRegistration(studentId: string, semester: SemesterEnum) {
+    const trainingCodes = ['CS111', 'CS222', 'CS333', 'CS444'];
 
-    const student = await this.userRepository.findById(new Types.ObjectId(studentId));
-    if (!student) throw new NotFoundException('Student not found');
+    // 5. تجهيز المصفوفة (Array) اللي هتشيل كل المواد عشان نحفظها
+    const enrollmentsToCreate = dto.courseId.map(id => {
+      // بنجيب الدكتور المحدد للمادة دي من الخطة
+      const planCourse = plan.courses.find(c => c.courseId.toString() === id);
+      // بنجيب تفاصيل المادة
+      const courseInfo = coursesDetails.find(c => c?._id.toString() === id);
 
-
-    const plan = await this.studyPlanRepository.findOne({
-      filter: {
-        academicYear: student.currentYear,
-        semester: semester,
+      // لو المادة دي تدريب (Training) الـ min credit hours بتاعتها هتبقى بـ 0 عادي
+      const isTrainingCourse = courseInfo ? trainingCodes.includes(courseInfo.code) : false;
+      let finalCreditHours = courseInfo?.creditHours || 0;
+      if (isTrainingCourse) {
+        finalCreditHours = 0;
       }
-    });
 
-    if (!plan) throw new BadRequestException('Plan not found.');
-
-   
-    // 1. عدّ المواد اللي مسجلها فعلاً في الداتا بيز
-    const registeredCount = await this.enrollmentRepository.count({
-      
-        studentId: new Types.ObjectId(studentId),
+      return {
+        studentId: studentIdObj,
+        courseId: new Types.ObjectId(id),
+        professorId: planCourse?.professorId,
         academicYear: student.currentYear,
-        semester: semester,
-        enrollmentStatus: EnrollmentStatusEnum.ACTIVE,
-      
+        semester: dto.semester,
+        summerReason: SummerReasonEnum.NONE,
+        attemptCount: 1,
+        hasPenalty: false,
+        creditHours: finalCreditHours,
+        isTraining: isTrainingCourse,
+        enrollmentStatus: EnrollmentStatusEnum.COMPLETED,
+      };
     });
-    const requiredCount = plan.courses.length; // 5
 
-    if (registeredCount < requiredCount) {
-      const missing = requiredCount - registeredCount;
-      throw new BadRequestException(
-        `Action blocked! You are missing ${missing} mandatory course(s). You cannot proceed without registering for all ${requiredCount} courses.`
-      );
-    }
+    // 6. حفظ كل المواد في قاعدة البيانات بخطوة واحدة
+    await this.enrollmentRepository.insertMany(enrollmentsToCreate);
 
+    // 7. إرجاع النتيجة
     return {
-      message: 'Registration finalized successfully.',
+      success: true,
+      message: `Registration finalized successfully. ${enrollmentsToCreate.length} courses have been added to your schedule.`,
       enrollmentStatus: EnrollmentStatusEnum.COMPLETED
     };
   }
 
-
   // ==========================================
   // عرض الجدول (View Schedule)
   // ==========================================
-async getMySchedule(studentId: string, semester: string) {
+  async getMySchedule(studentId: string, semester: string) {
 
     // 1. هنجيب سجلات التسجيل بالشروط المباشرة عشان الـ Repo ميضربش Error
     const enrollments = await this.enrollmentRepository.find({
@@ -210,7 +178,7 @@ async getMySchedule(studentId: string, semester: string) {
           courseCode: course?.code,
           courseName: course?.name,
           creditHours: course?.creditHours,
-          isTraining: course?.isTraining || false, 
+          isTraining: course?.isTraining || false,
           professorName: professor?.fullName, // أو الاسم حسب ما متسجل في الموديل
         };
       })

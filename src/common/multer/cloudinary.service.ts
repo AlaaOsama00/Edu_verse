@@ -58,4 +58,26 @@ export class CloudinaryService {
     const match = url.match(/\/v\d+\/(.+)\.\w+$/);
     return match ? match[1] : null;
   }
+
+
+  async uploadAssignment(file: Express.Multer.File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'eduverse/assignments', // الفولدر اللي هيتكريت في Cloudinary
+          resource_type: 'auto', // عشان يقبل أي نوع ملف (PDF, Word, صور)
+        },
+           (error, result) => {
+          if (error || !result) {
+            return reject(
+              new BadRequestException('Error occurred when uploading this file, please try again.',error?.message),
+            );
+          }
+          resolve(result.secure_url);
+        },
+      );
+
+      Readable.from(file.buffer).pipe(uploadStream);
+    });
+  }
 }

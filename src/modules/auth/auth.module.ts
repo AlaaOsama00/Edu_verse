@@ -1,4 +1,4 @@
-import { TokenService } from '@services/token.service';
+import { TokenService } from '@utils/token';
 import { UserRepository } from '@models/user/user.repository';
 import { Module } from "@nestjs/common";
 import { AuthController } from "./auth.controller";

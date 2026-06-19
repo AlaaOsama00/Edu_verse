@@ -4,7 +4,7 @@ import { AssessmentTypeEnum } from '@utils/enum';
 export class CreateAssignmentDto {
 
   @IsNotEmpty()
-  @IsMongoId()
+  @IsString()
   courseId: string;
 
   @IsEnum([AssessmentTypeEnum.ASSIGNMENT1, AssessmentTypeEnum.ASSIGNMENT2])
@@ -15,11 +15,7 @@ export class CreateAssignmentDto {
   @IsNotEmpty()
   name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  description: string;
-
   @IsDateString()
   @IsNotEmpty()
-  deadline: string; // التاريخ اللي هيتقفل عنده
+  deadline: Date; // التاريخ اللي هيتقفل عنده
 }

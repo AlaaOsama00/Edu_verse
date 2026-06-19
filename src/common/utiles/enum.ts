@@ -65,13 +65,13 @@ export enum SemesterEnum {
   SPRING = 'SPRING',
   SUMMER = 'SUMMER',
 }
- 
+
 
 export enum StudentStatusEnum {
   ENROLLED = 'ENROLLED',
   DROPPED = 'DROPPED',
 }//to do in 4 th year term  2
-  
+
 
 
 export enum ClubTagEnum {
@@ -83,6 +83,7 @@ export enum ClubTagEnum {
   AI = '#AI',
   DATA_ANALYSIS = '#DATA_ANALYSIS',
   NETWORK = '#NETWORK',
+  Database = '#DATABASE',
 }
 
 export enum ClubResourceTypeEnum {

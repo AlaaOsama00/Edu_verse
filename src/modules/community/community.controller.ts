@@ -37,7 +37,7 @@ export class CommunityController {
   // ==========================================
   // POST /community/clubs — Admin 
 
-  @Post('club')
+  @Post('create-club')
   @Auth(UserRolesEnum.ADMIN)
   async createClub(@Body() dto: CreateClubDto, @CurrentUser('_id') adminId) {
     return this.clubService.createClub(dto, adminId);
@@ -56,7 +56,12 @@ export class CommunityController {
     return this.clubService.updateClubInfo(userId, dto, clubId);
   }
 
-
+  @Delete('clubs/:clubId')
+  @Auth(UserRolesEnum.ADMIN)
+  async deleteClub(@Param('clubId') clubId: string) {
+    return this.clubService.deleteClub(clubId);
+  }
+  
   // ==========================================
   // MEMBERSHIP — Join / Leave
   // ==========================================
@@ -88,7 +93,7 @@ export class CommunityController {
 
   // POST /community/clubs/:clubId/posts
   @Post('clubs/:clubId/posts')
-  @Auth(UserRolesEnum.ADMIN,UserRolesEnum.STUDENT)
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   @UseInterceptors(FileInterceptor('file')) // 👈 ضفنا الانترسبتور هنا عشان يستقبل الملف
   async createPost(
     @Param('clubId') clubId: string,
@@ -103,50 +108,50 @@ export class CommunityController {
   // GET /community/clubs/:clubId/posts — Feed بتاع الـ club
   @Get('clubs/:clubId/posts')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
-  async getClubPosts(@Param('clubId') clubId: string, @CurrentUser('_id')userId) {
-    return this.postService.getClubPosts(clubId,userId);
+  async getClubPosts(@Param('clubId') clubId: string, @CurrentUser('_id') userId) {
+    return this.postService.getClubPosts(clubId, userId);
   }
 
   // DELETE /community/posts/:postId — صاحب البوست بس
   @Delete('posts/:postId')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
-  async deletePost(@Param('postId') postId: string, @CurrentUser('_id')userId) {
+  async deletePost(@Param('postId') postId: string, @CurrentUser('_id') userId) {
     return this.postService.deletePost(postId, userId);
   }
 
   // POST /community/posts/:postId/like — Toggle Like
   @Post('posts/:postId/like')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
-  async toggleLike(@Param('postId') postId: string, @CurrentUser('_id')userId) {
-    return this.postService.toggleLike(postId,userId);
+  async toggleLike(@Param('postId') postId: string, @CurrentUser('_id') userId) {
+    return this.postService.toggleLike(postId, userId);
   }
 
   // ==========================================
   // COMMENTS — Members بس
   // ==========================================
 
-    // POST /community/posts/:postId/comments
+  // POST /community/posts/:postId/comments
   @Post('posts/:postId/comments')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
   async addComment(
     @Param('postId') postId: string,
     @Body() dto: CreateCommentDto,
-    @CurrentUser('_id')userId,
+    @CurrentUser('_id') userId,
   ) {
-    return this.commentService.addComment(postId, dto,userId);
+    return this.commentService.addComment(postId, dto, userId);
   }
 
   // GET /community/posts/:postId/comments
   @Get('posts/:postId/comments')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
-  async getComments(@Param('postId') postId: string, @CurrentUser('_id')userId) {
+  async getComments(@Param('postId') postId: string, @CurrentUser('_id') userId) {
     return this.commentService.getPostComments(postId, userId);
   }
 
   // DELETE /community/comments/:commentId — صاحب الكومنت بس
   @Delete('comments/:commentId')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
-  async deleteComment(@Param('commentId') commentId: string, @CurrentUser('_id')userId) {
+  async deleteComment(@Param('commentId') commentId: string, @CurrentUser('_id') userId) {
     return this.commentService.deleteComment(commentId, userId);
   }
 }
