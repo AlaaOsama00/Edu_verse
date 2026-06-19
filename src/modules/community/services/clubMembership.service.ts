@@ -33,8 +33,8 @@ export class ClubMembershipService {
       filter: { studentId: studentObjId, clubId: clubObjId },
     });
 
-   if (!membership) {
-      throw new ForbiddenException('You must be a member of this club to perform this action');
+   if (membership) {
+      throw new ForbiddenException('You are already joined');
     }
 
      // 3. اعمل الـ membership
@@ -63,7 +63,7 @@ export class ClubMembershipService {
     });
 
    if (!membership) {
-      throw new ForbiddenException('You must be a member of this club to perform this action');
+      throw new ForbiddenException('You are already not a member of this club');
     }
     // 2. امسح الـ membership
     await this.membershipRepo.findByIdAndDelete({ id: membership._id });
@@ -80,7 +80,7 @@ export class ClubMembershipService {
   // =====================
   async getClubMembers(clubId: string) {
     return this.membershipRepo.find({
-      filter: { clubId: new Types.ObjectId(clubId) },
+       clubId: new Types.ObjectId(clubId) ,
     });
   }
 

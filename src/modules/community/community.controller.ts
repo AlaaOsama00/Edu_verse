@@ -92,7 +92,7 @@ export class CommunityController {
   // ==========================================
 
   // POST /community/clubs/:clubId/posts
-  @Post('clubs/:clubId/posts')
+  @Post('clubs/:clubId/post')
   @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   @UseInterceptors(FileInterceptor('file')) // 👈 ضفنا الانترسبتور هنا عشان يستقبل الملف
   async createPost(
@@ -105,25 +105,52 @@ export class CommunityController {
     return this.postService.createPost(clubId, dto, userId, file);
   }
 
-  // GET /community/clubs/:clubId/posts — Feed بتاع الـ club
-  @Get('clubs/:clubId/posts')
+  // GET /community/club/:clubId/posts — Feed بتاع الـ club
+  @Get('club/:clubId/posts')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async getClubPosts(@Param('clubId') clubId: string, @CurrentUser('_id') userId) {
     return this.postService.getClubPosts(clubId, userId);
   }
 
-  // DELETE /community/posts/:postId — صاحب البوست بس
-  @Delete('posts/:postId')
+  // DELETE /community/post/:postId — صاحب البوست بس
+  @Delete('post/:postId')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async deletePost(@Param('postId') postId: string, @CurrentUser('_id') userId) {
     return this.postService.deletePost(postId, userId);
   }
 
-  // POST /community/posts/:postId/like — Toggle Like
-  @Post('posts/:postId/like')
-  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
+  // POST /community/post/:postId/like — Toggle Like
+  @Post('post/:postId/like')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async toggleLike(@Param('postId') postId: string, @CurrentUser('_id') userId) {
     return this.postService.toggleLike(postId, userId);
+  }
+
+  @Patch('post/:postId/pin')
+  @Auth(UserRolesEnum.ADMIN) // صلاحية للـ Admin بس
+  async pinPost(
+    @Param('postId') postId: string,
+    @CurrentUser('_id') adminId: string,
+  ) {
+    return this.postService.pinPost(postId, adminId);
+  }
+
+  @Patch('post/:postId/unpin')
+  @Auth(UserRolesEnum.ADMIN) // صلاحية للـ Admin بس
+  async unpinPost(
+    @Param('postId') postId: string,
+    @CurrentUser('_id') adminId: string,
+  ) {
+    return this.postService.unpinPost(postId, adminId);
+  }
+
+  @Get('club/:clubId/pinned-posts')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN) // صلاحية للطلاب والأدمن
+  async getPinnedPosts(
+    @Param('clubId') clubId: string,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.postService.getPinnedPosts(clubId, userId);
   }
 
   // ==========================================

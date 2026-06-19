@@ -73,7 +73,7 @@ export class PostService {
         });
 
         // 📡 بلّغ كل أعضاء الـ Club إن فيه بوست جديد
-        await this.gateway.emitNewPost(clubId, post);
+         this.gateway.emitNewPost(clubId, post);
 
         return post;
     }
@@ -186,7 +186,7 @@ export class PostService {
             throw new NotFoundException('Not found');
         }
         // بس صاحب البوست يقدر يمسحه
-        if (user.role == UserRolesEnum.STUDENT && post.authorId.toString() !== userId) {
+        if (user.role == UserRolesEnum.STUDENT && post.authorId.toString() != userId) {
             throw new ForbiddenException('Unauthorized');
         }
 
@@ -240,7 +240,7 @@ export class PostService {
         });
 
         // 📡 بلّغ الكل إن فيه Resource جديدة ظهرت
-        await this.gateway.emitPostPinned(post.clubId.toString(), updatedPost);
+       this.gateway.emitPostPinned(post.clubId.toString(), updatedPost);
 
         return updatedPost;
     }
@@ -273,7 +273,7 @@ export class PostService {
             },
         });
 
-        await this.gateway.emitPostUnpinned(post.clubId.toString(), postId);
+         this.gateway.emitPostUnpinned(post.clubId.toString(), postId);
 
         return { message: 'Admin unpinned this post' };
     }
@@ -312,9 +312,6 @@ export class PostService {
 
 
 
-
-
-    
 
     // ==========================================
     // Helper — بيقص المحتوى لأول كلمات قليلة بس

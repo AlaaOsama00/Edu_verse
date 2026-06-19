@@ -94,22 +94,22 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     }
 
     // بعد إضافة Post جديد
-    async emitNewPost(clubId: string, post: any) {
-        await this.server.to(this.roomName(clubId)).emit('newPost', post);
+     emitNewPost(clubId: string, post: any) {
+         this.server.to(this.roomName(clubId)).emit('newPost', post);
     }
 
     // بعد حذف Post
-    async emitPostDeleted(clubId: string, postId: string) {
-        await this.server.to(this.roomName(clubId)).emit('postDeleted', { postId });
+     emitPostDeleted(clubId: string, postId: string) {
+         this.server.to(this.roomName(clubId)).emit('postDeleted', { postId });
     }
 
-    async emitPostPinned(clubId: string, post: any) {
-        await this.server.to(this.roomName(clubId)).emit('postPinned', post);
+     emitPostPinned(clubId: string, post: any) {
+         this.server.to(this.roomName(clubId)).emit('postPinned', post);
     }
 
     // بعد ما الـ Admin يشيل الـ Pin — يختفي من Useful Resources فوراً عند الكل
-    async emitPostUnpinned(clubId: string, postId: string) {
-        await this.server.to(this.roomName(clubId)).emit('postUnpinned', { postId });
+     emitPostUnpinned(clubId: string, postId: string) {
+         this.server.to(this.roomName(clubId)).emit('postUnpinned', { postId });
     }
 
     @SubscribeMessage('joinUserRoom')
