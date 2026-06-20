@@ -18,26 +18,22 @@ export class Assessment {
   @Prop({ type: String, required: true, enum: AssessmentTypeEnum })
   type: AssessmentTypeEnum; // هو ايه؟ (أسيجمنت ولا ميدترم؟)
 
+  @Prop({ type: Number, required: true })
+  maxMarkAssessment: number;
+   // هو ايه؟ (أسيجمنت ولا ميدترم؟)
   @Prop({ type: String, required: true })
   name: string; // اسمه إيه؟ 
-
-  @Prop({ type: Number, required: true })
-  maxMark: number; // الدرجة العظمى (مثال: 10 للأسيجمنت، 40 للميدترم)
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId; // الدكتور اللي عمله
 
-  // ==========================================
-  // 2. بيانات خاصة بالأسيجمنت فقط (اختيارية)
-  // ==========================================
-  // لو النوع MIDTERM، دي هتبقى Null ومش هتأثر على حاجة
-  
   @Prop({ type: String})
   fileUrl:string
 
   @Prop({ type: Date, default: null })
   deadline: Date; // موعد التسليم (الميدترم مافيش ليه موعد تسليم، الطالب بيجي يمتحن)
-
+  
+  
 }
 
 export const AssessmentSchema = SchemaFactory.createForClass(Assessment);

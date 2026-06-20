@@ -34,12 +34,13 @@ export class UserController {
     //____________________________
 
 
-    @Auth()
-    @Get(['profile', 'profile/:id'])
-    async getMyProfile(@CurrentUser() currentUser: any, @Param('id') targetUserId?: string) {
-        const idToFetch = targetUserId || currentUser;
+    @Get('profile/:id')
+    @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN, UserRolesEnum.PROFESSOR) // ضيفي الباقي
+    async getStudentProfile(
+        @Param('id') targetUserId: string,
+    ) {
 
-        return this.userService.getUserProfile(currentUser, idToFetch);
+        return this.userService.getStudentProfile( targetUserId);
     }
 
     @Get('search-students')
@@ -60,7 +61,7 @@ export class UserController {
     @Auth(UserRolesEnum.ADMIN)
     async searchProfessors(@Query('q') query: string, @Query('status') status?: ActivationEnum | 'ALL') {
         // هنا الدالة هتبحث في الاسم والإيميل بس
-        const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR,status);
+        const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR, status);
         return { success: true, count: results.length, data: results };
     }
 

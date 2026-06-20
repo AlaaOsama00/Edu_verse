@@ -6,13 +6,14 @@ import { AppService } from './app.service';
 import devConfig from './config/dev.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { CourseModule } from './modules/course/course.module';
-import { GradeModule } from './modules/grade/grade.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
 import { EnrollmentModule } from './modules/Enrollment/enrollment.module';
 import { UserModule } from './modules/user/user.module';
 import { AcademicRecordModule } from './modules/academicRecord/academicRecord.module';
 import { CloudinaryModule } from './common/multer/cloudinary.module';
 import { CommunityModule } from './modules/community/community.module';
+import { SubmissionModule } from './modules/submission/submission.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module ';
 
 @Module({
   imports: [
@@ -28,18 +29,19 @@ import { CommunityModule } from './modules/community/community.module';
     }),
     AuthModule,
     UserModule,
-    GradeModule,
     AcademicRecordModule,
     CourseModule,
     AssessmentModule,
-    GradeModule,
+    SubmissionModule,
     AcademicRecordModule,
     EnrollmentModule,
     CloudinaryModule,
-    CommunityModule
+    CommunityModule,
+    ChatbotModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],
-  
+
 })
 export class AppModule { }

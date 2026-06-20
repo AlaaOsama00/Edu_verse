@@ -1,19 +1,24 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { EnrollmentStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
 import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
-import { AddCourseDto } from './dto/add-course-dto';
+import { AddCourseDto } from '../Enrollment/dto/add-course-dto';
 
 
+    let completedCoursesCount = 0;
+    let totalCredits = 0;
+    const availableCourseCount = 40-completedCoursesCount;
 
 @Injectable()
 export class EnrollmentService {
   constructor(
+    
     private readonly courseRepository: CourseRepository,
     private readonly studyPlanRepository: StudyPlanRepository,
     private readonly enrollmentRepository: EnrollmentRepository,
     private readonly userRepository: UserRepository
   ) { }
+  
   // ==========================================
   // 1. جلب المواد المتاحة للتسجيل (اللي هتظهر في الـ UI)
   // ==========================================
@@ -195,4 +200,175 @@ export class EnrollmentService {
     };
   }
 
+  /*
+  هيجسي الماركس بتع كل ماده من  ال enrollment 
+  */
+  async getMyCurrentGrades(studentId: string, semester: string) {
+    const studentObjId = new Types.ObjectId(studentId);
+    const user = await this.userRepository.findById(studentObjId);
+    if (!user)
+      throw new NotFoundException();
+    const enrollments = await this.enrollmentRepository.find({
+      studentId: studentObjId,
+      semester: semester // اللي هي مبعوتة من البوست مان 'FALL'
+    });
+
+    // 2. لو الطالب مش مسجل أي مواد في الترم ده
+    if (!enrollments || enrollments.length === 0) {
+      return [];
+    }
+
+    // 3. ترتيب وتصفية الداتا عشان نرجع شكل نظيف للـ Frontend
+    const gradesReport = enrollments.map(enrollment => {
+      return {
+        courseId: enrollment.courseId,
+        // لو الداتابيز عندك بتعمل Populate (Join) تقدر ترجع اسم الكورس كمان هنا
+        // courseName: enrollment.courseId.name, 
+        marks: enrollment.marks || {}, // بنرجع الـ Object بتاع الدرجات كامل
+      };
+    });
+
+    return gradesReport;
+  }
+
+  //المواد بتاعته 
+  async getStudentEnrollmentCourses(currentUser: string) {
+
+    const studentOBJ = new Types.ObjectId(currentUser);
+
+    const student = await this.userRepository.findById(studentOBJ);
+    if (!student) {
+      throw new NotFoundException('Not Found');
+    }
+
+
+    const allEnrollments = await this.enrollmentRepository.find(
+      { studentId: studentOBJ }, // 1. الـ Filter
+      {},                       // 2. الـ Projection (فاضي عشان نجيب كل الحقول)
+      {
+        // 3. الـ Options
+        populate: [
+          { path: 'courseId', select: 'name code' },
+          { path: 'professorId', select: 'fullName' }
+        ]
+      }
+    );
+  
+    const currentEnrolledCourses: any[] = [];
+
+
+    for (const enrollment of allEnrollments) {
+      if (enrollment.isPassed) {
+        completedCoursesCount++;
+        totalCredits += (enrollment.creditHours || 0);
+      }
+      else if (enrollment.enrollmentStatus == EnrollmentStatusEnum.COMPLETED) { // أو حسب الـ status عندك
+        currentEnrolledCourses.push({
+          courseName: (enrollment.courseId as any)?.name || 'N/A',
+          code: (enrollment.courseId as any)?.code || 'N/A',
+
+          doctor: (enrollment.professorId as any)?.fullName || 'TBA',
+          credits: enrollment.creditHours || 0,
+        });
+      }
+
+    }
+
+    return {
+      completedCoursesCount,
+      totalCredits,
+      availableCourseCount,
+      currentEnrolledCourses,
+    };
+  }
+
+
+
+  async calculateAndUpdateFinalResults(studentId: string, courseId: string) {
+    // 1. جلب السجل الخاص بالطالب في هذه المادة
+    const enrollment = await this.enrollmentRepository.findOne({
+      filter: {
+        studentId: new Types.ObjectId(studentId),
+        courseId: new Types.ObjectId(courseId),
+      }
+    });
+
+    if (!enrollment) return null;
+
+    // 2. جمع الدرجات (Total Score)
+    // نمر على كل القيم الموجودة داخل الـ Object المسمى marks ونجمعها
+    const marksObject = enrollment.marks || {};
+    let totalScore = 0;
+
+    // Object.values بتجيب كل الأرقام اللي جوه marks (ass1, ass2, mid, final)
+    Object.values(marksObject).forEach((mark: number) => {
+      if (typeof mark === 'number') {
+        totalScore += mark;
+      }
+    });
+
+    // 3. حساب التقدير المستحق (Earned Grade)
+    const earnedGrade = calculateGradeLetter(totalScore);
+
+    // 4. حساب التقدير النهائي مع التحقق من المحاولات (Final Grade & Penalty)
+    let finalGrade = earnedGrade;
+    let hasPenalty = false;
+
+    // إذا كانت هذه هي المحاولة الثانية (إعادة المادة)
+    if (enrollment.attemptCount === 2) {
+      finalGrade = applyAttemptPenalty(earnedGrade);
+      hasPenalty = true;
+    }
+
+    // 5. حالة النجاح أو الرسوب (مثلاً النجاح من 60 أو حسب لائحة الكلية)
+    const isPassed = totalScore >= 50 && finalGrade !== 'F';
+
+    // 6. تحديث قاعدة البيانات
+    const updatedEnrollment = await this.enrollmentRepository.findOneAndUpdate({
+      filter: { _id: enrollment._id },
+      update: {
+        $set: {
+          totalScore,
+          earnedGrade,
+          finalGrade,
+          isPassed,
+          hasPenalty, // اختياري لتسجيل أنه تم تطبيق الخصم
+        }
+      },
+      options: { new: true }
+    });
+
+    return updatedEnrollment;
+  
+  }
+
+
+
+
+
+
+
+}
+
+
+// دالة لحساب التقدير الأصلي بناءً على المجموع
+function calculateGradeLetter(score: number): string {
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  return 'F'; // رسوب
+}
+
+// دالة لتقليل التقدير درجة واحدة (Penalty)
+function applyAttemptPenalty(grade: string): string {
+  const gradeScale = ['A', 'B', 'C', 'D', 'F'];
+  const currentIndex = gradeScale.indexOf(grade);
+
+  // لو التقدير مش موجود أو الطالب راسب أصلاً، نرجع F
+  if (currentIndex === -1 || grade === 'F') return 'F';
+
+  // ننزل للتقدير اللي بعده (مثلاً من A لـ B)
+  const nextIndex = Math.min(currentIndex + 1, gradeScale.length - 1);
+  return gradeScale[nextIndex];
 }

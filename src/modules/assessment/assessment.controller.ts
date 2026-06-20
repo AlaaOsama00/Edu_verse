@@ -36,7 +36,7 @@ export class AssessmentController {
   }
   // عرض كل تقييمات المادة (لما يفتح الـ Gradebook)
   @Get('course/:courseId')
-  @Auth()
+  @Auth(UserRolesEnum.STUDENT)
   async getCourseAssessments(@Param('courseId') courseId: string) {
     return this.assessmentService.getCourseAssessments(courseId);
   }

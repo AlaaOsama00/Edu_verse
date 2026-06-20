@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { GradeEnum, GradeStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
-import { EnrollmentRepository, UserRepository, AcademicRecordRepository, GradeRepository } from '@models/index';
+import { EnrollmentRepository, UserRepository, AcademicRecordRepository, SubmissionRepository } from '@models/index';
 import { Types } from 'mongoose';
 import { applyGradePenalty, gradeToPoints } from '@utils/helpers';
 
@@ -11,13 +11,13 @@ export class AcademicRecordService {
     private readonly academicRecordRepository: AcademicRecordRepository,
     private readonly enrollmentRepo: EnrollmentRepository,
     private readonly userRepository: UserRepository,
-    private readonly gradeRepo :GradeRepository
+    private readonly submissionRepository: SubmissionRepository
   ) { }
 
   // ==========================================
   // المحرك الآلي الشامل (يشتغل تلقائياً لما الدكتور يرفع درجة)
   // ==========================================
-  async evaluateStudentProgress(studentId: Types.ObjectId, academicYear: string,currentSemester: SemesterEnum) {
+  async evaluateStudentProgress(studentId: Types.ObjectId, academicYear: string, currentSemester: SemesterEnum) {
 
     // 1. جيب كل مواد الطالب في السنة دي (فال، سبرينج، صيف)
     const allYearEnrollments = await this.enrollmentRepo.find({
@@ -292,7 +292,6 @@ export class AcademicRecordService {
         academicYear: record.academicYear,
         yearGpa: record.yearGpa,
         cumulativeGpa: record.cumulativeGpa,
-        mustRepeatYear: record.mustRepeatYear,
         failedCount: record.failedCount,
         // هنا نربط التيرمات اللي عملناها في الـ Map
         semesters: historyMap.get(record.academicYear)?.semesters || {}
@@ -304,7 +303,7 @@ export class AcademicRecordService {
     // ==========================================
     return {
       studentInfo: {
-        fullName: student.fullName ,
+        fullName: student.fullName,
         academicId: student.academicId,
         currentAcademicYear: student.currentYear
       },
@@ -313,7 +312,7 @@ export class AcademicRecordService {
     };
   }
 
-    // ==========================================
+  // ==========================================
   // داشبورد الطالب (البيانات الإحصائية المتجمعة)
   // ==========================================
   async getStudentDashboard(studentId: string) {
@@ -334,18 +333,18 @@ export class AcademicRecordService {
     // 2. إحصائيات الـ Assessments (Tasks) - بنجيبهم من جدول الـ Grade
     // ==========================================
     // إجمالي الـ Assessments اللي الطالب اتسلمها أو اتدرجت فيها طول عمره في الجامعة
-const gradeStats = await this.gradeRepo.aggregate([
+    const gradeStats = await this.submissionRepository.aggregate([
 
-  { $match: { studentId: studentObjId } },
-      
+      { $match: { studentId: studentObjId } },
+
       // 2. شيلنا فوراً كل الحقول اللي مش محتاجها عشان الـ Response يبقى نضيف
-      { 
-        $project: { 
-          gradeStatus: 1, 
-          _id: 0 
-        } 
+      {
+        $project: {
+          gradeStatus: 1,
+          _id: 0
+        }
       },
-      
+
       // 3. $facet: نفصل الداتا لـ "مجموع الكل" و "اللي اتعملتgrading"
       {
         $facet: {
@@ -370,10 +369,10 @@ const gradeStats = await this.gradeRepo.aggregate([
     // 3. التدريب الصيفي (Applied Training)
     // ==========================================
     const trainingEnrollments = await this.enrollmentRepo.find({
-      filter: { 
-        studentId: studentObjId, 
-        isTraining: true, 
-        isTrainingApproved: true 
+      filter: {
+        studentId: studentObjId,
+        isTraining: true,
+        isTrainingApproved: true
       }
     });
     const appliedTraining = trainingEnrollments.length;
@@ -383,7 +382,7 @@ const gradeStats = await this.gradeRepo.aggregate([
     // ==========================================
     const topCoursesGrades = await this.enrollmentRepo.aggregate([
       { $match: { studentId: studentObjId, isPassed: true, isTraining: false } },
-      
+
       // نجيب بيانات الكورس اللي أخدها
       {
         $lookup: {
@@ -392,14 +391,14 @@ const gradeStats = await this.gradeRepo.aggregate([
           foreignField: '_id',
           as: 'courseData',
           // نأخذ الاسم والكود بس عشان الـ Dashboard يبقى خفيف
-          pipeline: [ { $project: { name: 1, code: 1, marksDistribution: 1 } } ] 
+          pipeline: [{ $project: { name: 1, code: 1, marksDistribution: 1 } }]
         }
       },
       { $unwind: '$courseData' },
-      
+
       // نرتبهم تنازلياً حسب الـ Total Score
       { $sort: { totalScore: -1 } },
-      
+
       // ناخد أعلى 5 بس عشان الـ UI
       { $limit: 5 },
 
@@ -432,7 +431,7 @@ const gradeStats = await this.gradeRepo.aggregate([
       },
       appliedTraining, // 1
       topCoursesGrades, // Array فيها الاسم والنسبة
-      // announcements: latestAnnouncements // لو عايز تعرضهم تحت، شيل علامة التعليق ده وفعّل اللي فوق
+      //announcements: latestAnnouncements // لو عايز تعرضهم تحت، شيل علامة التعليق ده وفعّل اللي فوق
     };
   }
 }

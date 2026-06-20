@@ -15,10 +15,6 @@ export class AcademicRecord {
   @Prop({ type: Number, required: true, default: 0 })
   failedCount: number;
 
-  // أكتر من مادة راسب → لازم يعيد السنة
-  @Prop({ type: Boolean, default: false })
-  mustRepeatYear: boolean;
-
   // الـ GPA في نهاية السنة دي بس (مش الـ cumulative)
   @Prop({ type: Number, default: null, min: 0, max: 4 })
   yearGpa: number | null;
@@ -27,9 +23,8 @@ export class AcademicRecord {
   @Prop({ type: Number, default: null, min: 0, max: 4 })
   cumulativeGpa: number | null;
 
-  // 💡 إضافة مقترحة: هل تم خصم تقديراته في السنة دي بسبب الصيف؟
-  @Prop({ type: Boolean, default: false })
-  hasPenalty: boolean;
+  @Prop({type: Number, required: true })
+  totalCredits:number
 
 }
 

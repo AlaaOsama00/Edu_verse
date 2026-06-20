@@ -1,17 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { Model, Types } from "mongoose";
-import { Grade } from "./grade.schema";
+import { Submission } from "./submission.schema";
 import { InjectModel } from "@nestjs/mongoose";
 import { AbstractRepository } from "@models/abstract.repository";
 
 
 
 @Injectable()
-export class  GradeRepository extends AbstractRepository<Grade> {
+export class  SubmissionRepository extends AbstractRepository<Submission> {
     constructor(
-      @InjectModel(Grade.name)protected readonly grade: Model<Grade>,
+      @InjectModel(Submission.name)protected readonly submission: Model<Submission>,
     ) {
-      super(grade);
+      super(submission);
     } 
 
 
@@ -24,8 +24,8 @@ export class  GradeRepository extends AbstractRepository<Grade> {
    async findRecordsByAcademicYear(
        studentId: Types.ObjectId,
        year: number,
-     ): Promise<Grade[]> {
-       return this.grade.find({ 
+     ): Promise<Submission[]> {
+       return this.submission.find({ 
          studentId, 
          academicYear: year,
          isPassed: false // بنجيب الراسبات بس عشان نشوف هل هم 2 ولا لا
@@ -40,8 +40,8 @@ export class  GradeRepository extends AbstractRepository<Grade> {
     studentId: Types.ObjectId,
     courseId: Types.ObjectId,
     semester: string,
-  ): Promise<Grade | null> {
-    return this.grade.findOne({ studentId, courseId, semester }).exec();
+  ): Promise<Submission | null> {
+    return this.submission.findOne({ studentId, courseId, semester }).exec();
   }
 
 }

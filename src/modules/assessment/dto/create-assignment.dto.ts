@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsMongoId, IsNotEmpty, IsString } from 'class-validator';
+import { IsDateString, IsEnum,IsNotEmpty, IsString } from 'class-validator';
 import { AssessmentTypeEnum } from '@utils/enum';
 
 export class CreateAssignmentDto {

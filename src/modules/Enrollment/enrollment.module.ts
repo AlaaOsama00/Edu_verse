@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CourseSchema, CourseRepository, StudyPlanSchema, EnrollmentSchema, Enrollment, StudyPlan, Course, StudyPlanRepository, EnrollmentRepository, UserRepository, UserSchema, User, } from '@models/index';
 import { EnrollmentController } from './enrollment.controller';
-import { EnrollmentService } from './enrollment.service';
 import { JwtService } from '@nestjs/jwt';
+import { EnrollmentService } from './enrollment.service';
 
 
 @Module({
@@ -22,7 +22,7 @@ import { JwtService } from '@nestjs/jwt';
     StudyPlanRepository,
     CourseRepository,
     JwtService,
-    UserRepository
+    UserRepository,
   ],
 })
 export class EnrollmentModule {}

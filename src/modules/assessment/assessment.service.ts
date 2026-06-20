@@ -5,6 +5,7 @@ import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { calculateTimeLeft } from '@utils/helpers';
 import { CloudinaryService } from 'src/common/multer/cloudinary.service';
 import { CommunityGateway } from '../community/community.gateway';
+import { ASSESSMENT_MAX_MARKS } from '@utils/constants';
 
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AssessmentService {
   // إنشاء أسيجمنت (1 أو 2) + تهيئة سجلات الدرجات الفاضية
   // ==========================================
   async createAssignment(professorId: string, dto: CreateAssignmentDto, file: Express.Multer.File) {
-
+    const allowedLimit = ASSESSMENT_MAX_MARKS[dto.type];
     const course = await this.courseRepo.findById(dto.courseId);
     if (!course) throw new BadRequestException('Course not found');
 
@@ -64,7 +65,7 @@ export class AssessmentService {
       courseId: new Types.ObjectId(dto.courseId),
       fileUrl: fileUrl, // 👈 هنا بنحفظ اللينك اللي راجع من Cloudinary
       createdBy: new Types.ObjectId(professorId),
-      maxMark: course.marksDistribution[dto.type],
+      maxMarkAssessment: allowedLimit,
     });
 
     // 4. إرسال الإشعار للطلبة (نفس الكود اللي فات)

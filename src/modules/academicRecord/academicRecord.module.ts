@@ -1,6 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import { AcademicRecord, AcademicRecordSchema } from '@models/academicRecord/academicRecord.schema';
-import { Enrollment, EnrollmentSchema, User, UserSchema, Course, CourseSchema, EnrollmentRepository, UserRepository, CourseRepository, GradeRepository, Grade, GradeSchema } from '@models/index';
+import { Enrollment, EnrollmentSchema, User, UserSchema, Course, CourseSchema, EnrollmentRepository, UserRepository, CourseRepository, SubmissionRepository, Submission, SubmissionSchema } from '@models/index';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AcademicRecordController } from './academicRecord.controller';
@@ -16,7 +16,7 @@ import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.
       { name: Enrollment.name, schema: EnrollmentSchema },
       { name: User.name, schema: UserSchema },
       { name: Course.name, schema: CourseSchema },
-       { name: Grade.name, schema: GradeSchema },
+       { name: Submission.name, schema: SubmissionSchema },
     ]),
   ],
   controllers: [AcademicRecordController],
@@ -27,7 +27,7 @@ import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.
     UserRepository,
     CourseRepository,
     JwtService,
-    GradeRepository
+    SubmissionRepository
 ],
 })
 export class AcademicRecordModule {}

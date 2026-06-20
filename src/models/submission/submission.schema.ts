@@ -1,18 +1,13 @@
-import { Assessment } from './../assessment/assessment.schema';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
 
-export type GradeDocument = Grade & Document;
 
 // ====== حالة التصحيح ======
 
-
 @Schema({ timestamps: true })
 
-export class Grade {
-  @Prop({ type: Types.ObjectId, ref: 'Student', required: true, index: true })
-  studentId: Types.ObjectId;
+export class Submission {
 
   @Prop({ type: Types.ObjectId, ref: 'Course', required: true, index: true })
   courseId: Types.ObjectId;
@@ -23,32 +18,37 @@ export class Grade {
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
   gradedByProf: Types.ObjectId; // PROF
 
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  studentId: Types.ObjectId;
+
+
   // ====== بيانات التسليم (جديد) ======
+  @Prop({ type: String, default: null })
+  submissionFileUrl: string;
 
   @Prop({ type: String, enum: SubmissionStatusEnum, default: SubmissionStatusEnum.NOT_SUBMITTED })
   submissionStatus: SubmissionStatusEnum;  // NOT_SUBMITTED = 'not_submitted', SUBMITTED = 'submitted',MISSING = 'missing'
-       
+
 
   @Prop({ type: Date, default: null })
-  submittedAt: Date ;      
+  submittedAt: Date;
 
 
   // ====== بيانات التصحيح ======
-  @Prop({ type: Number,min:0, default:null})
+  @Prop({ type: Number, min: 0, default: null })
   mark: number;
 
   @Prop({ type: String, enum: GradeStatusEnum, default: GradeStatusEnum.PENDING })
   gradeStatus: GradeStatusEnum; //PENDING = 'pending', GRADED = 'graded'
-    
 }
 
-export const GradeSchema = SchemaFactory.createForClass(Grade);
+export const SubmissionSchema = SchemaFactory.createForClass(Submission);
 
 // ====== Indexes ======
-GradeSchema.index(
+SubmissionSchema.index(
   { studentId: 1, courseId: 1, assessmentId: 1 },
   { unique: true },
 );
-GradeSchema.index({ courseId: 1, assessmentId: 1 });
-GradeSchema.index({ studentId: 1, courseId: 1 });
-GradeSchema.index({ submissionStatus: 1 }); // للبحث عن الـ Missing
+SubmissionSchema.index({ courseId: 1, assessmentId: 1 });
+SubmissionSchema.index({ studentId: 1, courseId: 1 });
+SubmissionSchema.index({ submissionStatus: 1 }); // للبحث عن الـ Missing

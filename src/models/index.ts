@@ -8,8 +8,8 @@ export * from '@models/course/course.repository';
 export * from '@models/assessment/assessment.schema'
 export * from '@models/assessment/assessment.repository'
 
-export * from '@models/grade/grade.schema'
-export * from '@models/grade/grade.repository'
+export * from '@models/submission/submission.schema'
+export * from '@models/submission/submission.repository'
 
 export * from '@models/Enrollment/Enrollment.schema'
 export * from '@models/Enrollment/Enrollment.repository'

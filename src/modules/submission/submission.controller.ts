@@ -1,16 +1,36 @@
 import { Controller, Post, Body, Param, Get, Patch, Query } from '@nestjs/common';
-import { GradeService } from './grade.service';
 import { Auth } from '@decorators/authDecorator';
 import { UserRolesEnum } from '@utils/enum';
 import { EditGradeDto } from './dto/edit-grade.dto';
 import { BulkGradeDto } from './dto/bulk-grade.dto';
 import { CurrentUser } from '@decorators/userDecorator';
+import { SubmissionService } from './submission.service';
+import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 
 
-@Controller('grades')
-export class GradeController {
+@Controller('Submissions')
+export class SubmissionController {
 
-    constructor(private readonly gradeService: GradeService) { }
+    constructor(private readonly submissionService: SubmissionService) { }
+
+    @Post('submit/:assessmentId')
+    @Auth(UserRolesEnum.STUDENT)
+    async submitAssignment(
+        @CurrentUser('id') userId: string, // هنا بنستخدم الـ Custom Decorator لجلب الـ id مباشرة
+        @Param('assessmentId') assessmentId: string,
+        @Body() submitDto: SubmitAssignmentDto,
+    ) {
+        return await this.submissionService.submitAssignment(
+            userId,
+            assessmentId,
+            submitDto.submissionFileUrl,
+        );
+    }
+
+
+
+
+
     // ==========================================
     // 1. عرض الـ Gradebook للدكتور
     // ==========================================
@@ -18,7 +38,7 @@ export class GradeController {
     @Auth(UserRolesEnum.PROFESSOR, UserRolesEnum.ADMIN)
     async getGradebook(@Param('courseId') courseId: string) {
         // الواجهة هتبعت: GET /grades/gradebook/6621d9f8a1b2c3d4e5f67890
-        return this.gradeService.getGradebook(courseId);
+        return this.submissionService.getGradebook(courseId);
     }
 
     // ==========================================
@@ -32,7 +52,7 @@ export class GradeController {
         @Body() dto: EditGradeDto,
     ) {
         // الواجهة هتبعت: PATCH /grades/6621d9f8a1b2c3d4e5f67890  Body: { "marks": 8 }
-        return this.gradeService.editGrade(gradeId, dto, professorId);
+        return this.submissionService.editGrade(gradeId, dto, professorId);
     }
 
     // ==========================================
@@ -44,18 +64,10 @@ export class GradeController {
         @Param('professorId') professorId: string,
         @Body() dto: BulkGradeDto, // Body عادي مش Form-Data
     ) {
-        return this.gradeService.bulkUploadGrades(professorId, dto);
+        return this.submissionService.bulkUploadGrades(professorId, dto);
     }
     // ==========================================
     // 4. واجهة الطالب: درجاتي في الترم الحالي
     // ==========================================
-    @Get('my-grades')
-    @Auth(UserRolesEnum.STUDENT) // مهم: بس الطلاب يقدروا يوصلوا هنا
-    async getMyGrades(
-        @CurrentUser('_id') studentId: string,
-        @Query('academicYear') academicYear: string,
-        @Query('semester') semester: string,
-    ) {
-        return this.gradeService.getMyCurrentGrades(studentId, academicYear, semester);
-    }
+
 }

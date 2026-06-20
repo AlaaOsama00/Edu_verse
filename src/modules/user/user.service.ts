@@ -1,13 +1,19 @@
-import { UserRepository } from '@models/index';
+import { AcademicRecordRepository, UserRepository } from '@models/index';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ActivationEnum, UserRolesEnum } from '@utils/enum'; // عدل المسار لو مختلف
 import { hashPassword } from '@utils/helpers';
 import { CreateUserDto } from './dto/create-user-dto';
 import { UpdateUserDto } from './dto/updateUserDto';
+import { Types } from 'mongoose';
+import { EnrollmentService } from '../Enrollment/enrollment.service';
 
 @Injectable()
 export class UserService {
-    constructor(private readonly userRepository: UserRepository) { }
+    constructor(
+        private readonly userRepository: UserRepository,
+        private readonly academicRepo: AcademicRecordRepository,
+        private readonly enrollmentService: EnrollmentService
+    ) { }
 
 
     async createUser(createUserDto: CreateUserDto) {
@@ -133,27 +139,52 @@ export class UserService {
     }
 
     // البروفايل
-    async getUserProfile(currentUser: any, targetUserId: string) {
+    async getStudentProfile(currentUserId: string) {
+        // 1. هنجيب بيانات الطالب الأساسية
+        const user = await this.userRepository.findById(currentUserId);
+        if (!user || user.role != UserRolesEnum.STUDENT) throw new NotFoundException('User not found');
 
-        if (currentUser.role !== UserRolesEnum.ADMIN && currentUser.userId !== targetUserId) {
-            throw new ForbiddenException('You do not have permission to access this profile.');
-        }
-
-
-        const userProfile = await this.userRepository.findById(targetUserId);
-
-        if (!userProfile) throw new NotFoundException('User not found');
+        const profileData = user.toObject ? user.toObject() : user;
 
 
-        // 3. استبعاد البيانات الحساسة (زي الباسورد)
-        const { password, _id, __v, emailOtp, ...rest } = userProfile.toObject ? userProfile.toObject() : userProfile;
+        // 2. لو اليوزر طالب، هنجيب إحصائياته والمواد اللي مسجلها (ممكن تعدلي أسماء الـ Repos حسب اللي عندك)
 
-        return rest;
+        const {
+            completedCoursesCount,
+            totalCredits,
+            currentEnrolledCourses
+        } = await this.enrollmentService.getStudentEnrollmentCourses( currentUserId);
+
+        // ده الأضمن عشان بيعمل Sort وبيجيب أحدث سنة
+        const academicRecords = await this.academicRepo.find(
+            { studentId: new Types.ObjectId(currentUserId) },
+            {},
+            { sort: { academicYear: -1 }, limit: 1 }
+        );
+
+        const currentGPA = academicRecords[0]?.cumulativeGpa || 0;
+        return {
+            profile: {
+                fullName: profileData.fullName,
+                status: profileData.status,
+                studentId: profileData.academicId,
+                department: profileData.department,
+                academicYear: profileData.currentYear,
+                email: profileData.email,
+            },
+            statistics: {
+                currentGPA: currentGPA,
+                completedCourses: completedCoursesCount,
+                registeredCourses: currentEnrolledCourses.length,
+                totalCredits: totalCredits,
+            },
+            enrolledCourses: currentEnrolledCourses
+        };
     }
 
 
-   async searchUsers(searchTerm?: string, role?: string, status?: ActivationEnum | string) {
-        
+    async searchUsers(searchTerm?: string, role?: string, status?: ActivationEnum | string) {
+
         const filter: any = {};
 
         if (role) {
@@ -182,22 +213,24 @@ export class UserService {
             }
         }
         const users = await this.userRepository.find(
-            filter, 
-            { 
+            filter,
+            {
                 academicId: 1,
                 fullName: 1,
                 email: 1,
                 role: 1,
                 department: 1,
                 status: 1,
-                _id: 0 
-            }, 
-            { limit: 20 }    
+                _id: 0
+            },
+            { limit: 20 }
         );
 
         return users;
     }
 
 
-       
+
+
+
 }

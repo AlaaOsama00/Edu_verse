@@ -1,44 +1,30 @@
 import { SemesterEnum, UserRolesEnum } from '@utils/enum';
-import { Controller, Post, Body, Get, Query } from "@nestjs/common";
+import { Controller, Post, Body, Get, Query, Param } from "@nestjs/common";
 import { CurrentUser } from "@decorators/userDecorator";
-import { EnrollmentService } from './enrollment.service';
 import { Auth } from '@decorators/authDecorator';
-import { AddCourseDto, GetAvailableQueryDto ,} from './dto';
+import { AddCourseDto, GetAvailableQueryDto, } from './dto';
+import { EnrollmentService } from './enrollment.service';
 
 @Controller('Enrollments')
 export class EnrollmentController {
-  
-  constructor(private readonly enrollmentService: EnrollmentService) {}
+
+  constructor(private readonly enrollmentService: EnrollmentService) { }
 
 
-   // ==========================================
+  // ==========================================
   // 1. عرض المواد المتاحة 
   // ==========================================
-    @Get('available-courses')
-    @Auth(UserRolesEnum.STUDENT)
-    async getAvailableCourses(
-      @CurrentUser('_id') userId: string,
-      @Query() query: GetAvailableQueryDto,
-    ) {
-      const semester = query.semester || SemesterEnum.FALL;
-      return this.enrollmentService.getAvailableCourses(userId, semester);
-    }
+  @Get('available-courses')//for register
+  @Auth(UserRolesEnum.STUDENT)
+  async getAvailableCourses(
+    @CurrentUser('_id') userId: string,
+    @Query() query: GetAvailableQueryDto,
+  ) {
+    const semester = query.semester || SemesterEnum.FALL;
+    return this.enrollmentService.getAvailableCourses(userId, semester);
+  }
 
-  // ==========================================
-  // 2. إضافة مادة واحدة (لما يدوس على زرار Add)
-  // ==========================================
-  // @Post('add-course')
-  // @Auth(UserRolesEnum.STUDENT)
-  // async addSingleCourse(
-  //   @CurrentUser('_id') userId: string,
-  //   @Body() dto: AddSingleCourseDto, // فيه courseId و semester
-  // ) {
-  //   return this.enrollmentService.addSingleCourse(userId, dto);
-  // }
 
-  // ==========================================
-  // 3. تأكيد التسجيل النهائي (آخر خطوة)
-  // ==========================================
   @Post('confirm')
   @Auth(UserRolesEnum.STUDENT)
   async confirmRegistration(
@@ -48,7 +34,7 @@ export class EnrollmentController {
     return this.enrollmentService.confirmRegistration(userId, dto);
   }
 
-    // ==========================================
+  // ==========================================
   // عرض الجدول
   // ==========================================
   @Get('my-schedule')
@@ -59,4 +45,26 @@ export class EnrollmentController {
   ) {
     return this.enrollmentService.getMySchedule(userId, semester);
   }
+
+  @Get('student-status/:id')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
+  async getStudentEnrollmentCourses(
+    @Param('id') currentUser: string // الـ ID بتاع الطالب اللي مبعوت في الرابط
+  ) {
+    const stats = await this.enrollmentService.getStudentEnrollmentCourses(currentUser);
+    return {
+      success: true,
+      data: stats
+    };
+  }
+
+   @Get('my-grades')
+    @Auth(UserRolesEnum.STUDENT,UserRolesEnum.ADMIN) // مهم: بس الطلاب يقدروا يوصلوا هنا
+    async getMyGrades(
+        @CurrentUser('_id') studentId: string,
+        @Query('semester') semester: string,
+    ) {
+        return this.enrollmentService.getMyCurrentGrades(studentId, semester );
+    }
+
 }
