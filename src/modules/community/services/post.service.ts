@@ -68,7 +68,7 @@ export class PostService {
             clubId: clubObjId,
             authorId: authorObjId,
             content: dto.content,
-            mediaUrl, // 👈 غيرنا دي هنا (لازم تتغير في الـ Schema كمان)
+            mediaUrl, file,
             likes: [],
             commentsCount: 0,
         });

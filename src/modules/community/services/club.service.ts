@@ -134,17 +134,19 @@ export class ClubService {
             newRating: community.rating
         };
     }
-async getTopRatedCommunities() {
-    const topCommunities = await this.clubRepo.aggregate([
-      // 1. الترتيب تنازلياً (-1) حسب حقل التقييم
-      { $sort: { rating: -1 } },
-      
-      // 2. إرجاع أول 3 نتائج فقط
-      { $limit: 3 }
-    ]);
 
-    return topCommunities;
-  }
+    
+    async getTopRatedCommunities() {
+        const topCommunities = await this.clubRepo.aggregate([
+            // 1. الترتيب تنازلياً (-1) حسب حقل التقييم
+            { $sort: { rating: -1 } },
+
+            // 2. إرجاع أول 3 نتائج فقط
+            { $limit: 3 }
+        ]);
+
+        return topCommunities;
+    }
     // ==========================================
     // جيب club واحد بالتفاصيل
     // ==========================================
