@@ -79,7 +79,7 @@ export class PostService {
             authorName: user.fullName
         };
         // 📡 بلّغ كل أعضاء الـ Club إن فيه بوست جديد
-        this.gateway.emitNewPost(clubId, post);
+        this.gateway.emitNewPost(clubId, postWithAuthor);
 
         return postWithAuthor;
     }

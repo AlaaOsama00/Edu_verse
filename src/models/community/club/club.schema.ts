@@ -34,6 +34,11 @@ export class Club {
   })
   ratingsList: { userId: string, score: number }[];
 
+  
+  @Prop({ type: String, required: false })
+  imageUrl  : string
+
+
 }
 
 export const ClubSchema = SchemaFactory.createForClass(Club);

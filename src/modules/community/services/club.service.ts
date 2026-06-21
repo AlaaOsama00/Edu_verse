@@ -10,6 +10,7 @@ import { Types } from 'mongoose';
 import { CreateClubDto } from '../Dto/club/create-club-dto';
 import { UserRolesEnum } from '@utils/enum';
 import { UpdateClubDto } from '../Dto/club/update-club-dto';
+import { CloudinaryService } from 'src/common/multer/cloudinary.service';
 
 
 @Injectable()
@@ -20,6 +21,8 @@ export class ClubService {
         private readonly membershipRepo: ClubMembershipRepository,
         private readonly postRepo: PostRepository,
         private readonly commentRepo: CommentRepository,
+                private readonly cloudinaryService: CloudinaryService,
+
 
     ) { }
 
@@ -46,16 +49,26 @@ export class ClubService {
         if (existingClub) {
             throw new ConflictException(`Club with name '${dto.name}' already exists`);
         }
+        let imageUrl: string | null = null;
+        if (file) {
+            // تأكدي إنك عاملة inject لـ cloudinaryService في الـ constructor
+            const uploadResult = await this.cloudinaryService.uploadFile(
+                file,
+                'community/clubs', // اسم الفولدر اللي هيتحفظ فيه على كلاوديناري
+            );
+            imageUrl = uploadResult.secure_url;
+        }
         const club = await this.clubRepo.create({
             ...dto,
             createdBy: new Types.ObjectId(adminId),
+            imageUrl,
             membersCount: 0,
             rating: 0,
         });
 
         const clubObj = (club as any).toObject();
 
-        const { createdAt, updatedAt, __v, ...clubResponse } = clubObj;
+        const {  updatedAt, __v, ...clubResponse } = clubObj;
 
         return clubResponse;
     }
