@@ -187,6 +187,44 @@ export class ClubService {
         return { message: "Updated successfully" }
     }
 
+    // ==========================================
+    // عرض بيانات النادي (Club Info)
+    // ==========================================
+    async viewClubInfo(clubId: string, userId: string) {
+        const clubObjId = new Types.ObjectId(clubId);
+        const userObjId = new Types.ObjectId(userId);
+
+        // 1. نجيب بيانات النادي
+        const club = await this.clubRepo.findById(clubObjId);
+        if (!club) {
+            throw new NotFoundException('Club not found');
+        }
+
+        // 2. نجيب بيانات المستخدم عشان نعرف هو طالب ولا أدمن
+        const user = await this.userRepository.findById(userObjId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        let isMember = "Admin";
+
+        // 3. لو المستخدم طالب، نشيك هل هو عضو في النادي ده ولا لأ
+        if (user.role == UserRolesEnum.STUDENT) {
+           isMember = "Member"; 
+        }
+
+        const clubData = club.toObject ? club.toObject() : JSON.parse(JSON.stringify(club));
+
+        // 4. تعريف الـ Guidelines الثابتة
+        const guidelines = "Welcome to our community! Please treat everyone with respect, avoid spamming, stay on topic, and help us keep this space helpful and friendly for everyone.";
+
+        // 5. نرجع البيانات كلها للـ Frontend
+        return {
+            ...clubData,
+            isMember, 
+            guidelines, // 👈 ضفنا الـ Guidelines للرد
+        };
+    }
 
     async deleteClub(clubId: string) {
         const clubObjId = new Types.ObjectId(clubId);

@@ -91,6 +91,16 @@ export class CommunityController {
     return this.clubService.deleteClub(clubId);
   }
 
+  // GET /clubs/:clubId
+  @Get(':clubId')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN) // مسموح للطلاب والأدمن يشوفوا معلومات النادي
+  async viewClubInfo(
+    @Param('clubId') clubId: string,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.clubService.viewClubInfo(clubId, userId);
+  }
+
   // ==========================================
   // MEMBERSHIP — Join / Leave
   // ==========================================
@@ -192,6 +202,16 @@ export class CommunityController {
     @CurrentUser('_id') userId: string,
   ) {
     return this.postService.getPinnedPosts(clubId, userId);
+  }
+
+  // GET /posts/:postId
+  @Get('posts/:postId')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
+  async getPostById(
+    @Param('postId') postId: string,
+    @CurrentUser('_id') userId: string,
+  ) {
+    return this.postService.getPostById(postId, userId);
   }
 
   // ==========================================

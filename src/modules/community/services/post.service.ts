@@ -391,7 +391,51 @@ export class PostService {
     }
 
 
+// ==========================================
+    // عرض بوست واحد بالتفاصيل باستخدام الـ ID
+    // ==========================================
+    async getPostById(postId: string, userId: string) {
+        const postObjId = new Types.ObjectId(postId);
+        const userObjId = new Types.ObjectId(userId);
 
+        // 1. نجيب البوست الأول عشان نعرف هو تبع أي نادي (Club)
+        const post = await this.postRepo.findById(postObjId);
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        // 2. نجيب بيانات المستخدم عشان نعرف هو أدمن ولا طالب
+        const user = await this.userRepository.findById(userObjId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        // 3. لو المستخدم طالب، نشيك هل هو عضو في النادي الخاص بالبوست ده؟
+        if (user.role == UserRolesEnum.STUDENT) {
+            const membership = await this.membershipRepo.findOne({
+                filter: { studentId: userObjId, clubId: post.clubId },
+            });
+
+            if (!membership) {
+                throw new ForbiddenException('You must be a member of this club to view this post');
+            }
+        }
+
+        // 4. نجيب بيانات صاحب البوست عشان نعرض اسمه الأول
+        const author = await this.userRepository.findById(post.authorId);
+        const authorFirstName = author?.fullName ;
+
+        // 5. ننظف الداتا عشان نقدر نضيف عليها الخصائص الإضافية
+        const postData = post.toObject ? post.toObject() : JSON.parse(JSON.stringify(post));
+
+        // 6. نرجع البوست كامل مع البيانات اللي بيحتاجها الـ Frontend
+        return {
+            ...postData,
+            authorFirstName, // اسم كاتب البوست
+            isLiked: postData.likes.some((id: any) => id.toString() === userId), // هل اليوزر الحالي عامل لايك؟
+            likesCount: postData.likes.length, // عدد اللايكات
+        };
+    }
 
 
     // ==========================================

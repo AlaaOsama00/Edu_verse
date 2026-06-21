@@ -18,7 +18,7 @@ export class CourseController {
     return this.courseService.createCourse(createCourseDto);
   }
 
-  @Auth(UserRolesEnum.ADMIN)
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   @Get()
   GetAllCourses(@Pagination() pagination: IPagination, @Query('search') search?: string) {
     return this.courseService.getAllCourses(pagination, search);
