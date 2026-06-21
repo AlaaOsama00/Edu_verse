@@ -68,7 +68,7 @@ export class PostService {
             clubId: clubObjId,
             authorId: authorObjId,
             content: dto.content,
-            mediaUrl, file,
+            mediaUrl:mediaUrl, 
             likes: [],
             commentsCount: 0,
         });
