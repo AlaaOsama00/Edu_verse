@@ -77,12 +77,7 @@ export class CommunityController {
       data: data,
     };
   }
-  // GET /community/clubs/:clubId
-  @Get('clubs/:clubId')
-  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
-  async viweClubInfo(@CurrentUser('_id') userId, @Param('clubId') clubId: string) {
-    return this.clubService.viweClubInfo(userId, clubId);
-  }
+ 
   // Update /community/clubs/:clubId
   @Patch('clubs/:clubId')
   @Auth(UserRolesEnum.ADMIN)
@@ -205,7 +200,7 @@ export class CommunityController {
 
   // POST /community/posts/:postId/comments
   @Post('posts/:postId/comments')
-  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async addComment(
     @Param('postId') postId: string,
     @Body() dto: CreateCommentDto,
@@ -216,14 +211,14 @@ export class CommunityController {
 
   // GET /community/posts/:postId/comments
   @Get('posts/:postId/comments')
-  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async getComments(@Param('postId') postId: string, @CurrentUser('_id') userId) {
     return this.commentService.getPostComments(postId, userId);
   }
 
   // DELETE /community/comments/:commentId — صاحب الكومنت بس
   @Delete('comments/:commentId')
-  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async deleteComment(@Param('commentId') commentId: string, @CurrentUser('_id') userId) {
     return this.commentService.deleteComment(commentId, userId);
   }

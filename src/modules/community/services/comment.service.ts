@@ -23,6 +23,7 @@ export class CommentService {
     async addComment(postId: string, dto: CreateCommentDto, authorId: string) {
         const postObjId = new Types.ObjectId(postId);
         const authorObjId = new Types.ObjectId(authorId);
+        const user = await this.userRepository.findById(authorObjId)
 
         // 1. جيب البوست عشان نعرف الـ clubId
         const post = await this.postService.getPostOrThrow(postObjId);
@@ -31,7 +32,7 @@ export class CommentService {
             filter: { studentId: authorObjId, clubId: post.clubId },
         });
 
-        if (!membership) {
+        if (!membership&&user?.role==UserRolesEnum.STUDENT) {
             throw new ForbiddenException('You must be a member of this club to perform this action');
         }
 
@@ -59,7 +60,7 @@ export class CommentService {
     async getPostComments(postId: string, userId: string) {
         const postObjId = new Types.ObjectId(postId);
         const userObjId = new Types.ObjectId(userId);
-
+        const user = await this.userRepository.findById(userObjId)
         // 1. جيب البوست عشان نعرف الـ clubId
         const post = await this.postService.getPostOrThrow(postObjId);
 
@@ -67,22 +68,28 @@ export class CommentService {
             filter: { studentId: userObjId, clubId: post.clubId },
         });
 
-        if (!membership) {
+        if (!membership&&user?.role==UserRolesEnum.STUDENT) {
             throw new ForbiddenException('You must be a member of this club to perform this action');
         }
 
-        await this.commentRepo.find(
-            { postId: postObjId },
-            {
+   const comments = await this.commentRepo.find(
+            { postId: postObjId }, // 1. الفلتر (Filter)
+            {},                    // 2. البروجيكشن (Projection) - فاضي عشان نرجع محتوى الكومنت
+            {                      // 3. الخيارات (Options) - مكان الـ sort والـ populate الصحيح
                 sort: { createdAt: -1 },
                 populate: [
                     {
                         path: 'authorId',
-                        select: 'firstName',
+                        select: 'fullName',
                     },
                 ],
             },
         );
+
+        if(comments.length ==0)
+            return {message:"No comments on this post yet"};
+
+        return comments
     }
 
     // ==========================================
@@ -102,7 +109,7 @@ export class CommentService {
         }
 
         // بس صاحب الكومنت يقدر يمسحه
-        if (user.role == UserRolesEnum.STUDENT && comment.authorId.toString() !== userId) {
+        if (user.role == UserRolesEnum.STUDENT && comment.authorId.toString() != userId) {
             throw new ForbiddenException('Unauthorized');
         }
 
@@ -111,6 +118,6 @@ export class CommentService {
         // نقص الـ commentsCount في الـ Post بـ 1
         await this.postService.incrementCommentsCount(comment.postId, -1);
 
-        return { message: 'comment deleted successfully' };
+        return { message: 'Comment deleted successfully' };
     }
 }

@@ -160,26 +160,7 @@ export class ClubService {
 
         return topCommunities;
     }
-    // ==========================================
-    // جيب club واحد بالتفاصيل
-    // ==========================================
-    async viweClubInfo(userId: string, clubId: string) {
-        const club = await this.clubRepo.findById(new Types.ObjectId(clubId));
-        const user = await this.userRepository.findById(new Types.ObjectId(userId))
-        if (!club || !user) {
-            throw new NotFoundException('Not Found');
-        }
 
-        if (user.role !== UserRolesEnum.STUDENT && user.role !== UserRolesEnum.ADMIN) {
-            throw new UnauthorizedException("Unauthorized")
-        }
-
-        const clubObj = (club as any).toObject();
-
-        const { createdAt, updatedAt, __v, ...clubResponse } = clubObj;
-
-        return clubResponse;
-    }
 
     // ==========================================
     // تعديل Club (Admin / Professor فقط)
