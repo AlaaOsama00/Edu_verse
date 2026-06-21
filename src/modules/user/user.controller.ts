@@ -58,7 +58,7 @@ export class UserController {
     }
 
     @Get('search-professors')
-    @Auth(UserRolesEnum.ADMIN)
+   //! @Auth(UserRolesEnum.ADMIN,UserRolesEnum.PROFESSOR,UserRolesEnum)
     async searchProfessors(@Query('q') query: string, @Query('status') status?: ActivationEnum | 'ALL') {
         // هنا الدالة هتبحث في الاسم والإيميل بس
         const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR, status);

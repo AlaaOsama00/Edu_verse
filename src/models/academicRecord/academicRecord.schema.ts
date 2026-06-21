@@ -1,37 +1,62 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
-import { AcademicYearEnum } from '@utils/enum';
+import { Document, Types } from 'mongoose';
+import { SemesterEnum } from '@utils/enum';
 
+// 1. تعريف الـ Sub-schema الخاص بتفاصيل كل مادة
+@Schema({ _id: false }) // مش محتاجين id لكل مادة لوحدها
+export class CourseRecord {
+  @Prop({ required: true })
+  subjectName: string; // اسم المادة
 
+  @Prop({ required: true, min: 0, max: 100 })
+  percentage: number; // جايب كام في المية
+
+  @Prop({ required: true })
+  grade: string; // الجريد (A, B, C, F, etc.)
+
+  @Prop({ type: String, enum: SemesterEnum, required: true })
+  semester: SemesterEnum; // FALL / SPRING
+}
+
+// 2. تعريف الـ Schema الأساسية للـ Academic Record
 @Schema({ timestamps: true })
-export class AcademicRecord {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
-  studentId: Types.ObjectId;
+export class AcademicRecord extends Document {
 
- @Prop({ type: String, required: true, enum: AcademicYearEnum })
-  academicYear: AcademicYearEnum;
+  // الربط ببيانات الطالب
+  @Prop({ type: Types.ObjectId, ref: 'Student', required: true, index: true })
+  student: Types.ObjectId;
 
-  // عدد المواد اللي سقط فيها في السنة دي
-  @Prop({ type: Number, required: true, default: 0 })
-  failedCount: number;
+  @Prop({ required: true })
+  academicYear: string;
 
-  // الـ GPA في نهاية السنة دي بس (مش الـ cumulative)
-  @Prop({ type: Number, default: null, min: 0, max: 4 })
-  yearGpa: number | null;
+  // المعدلات
+  @Prop({ required: true })
+  annualGpa: number; // الـ GPA السنوي
 
-  // الـ GPA التراكمي لحد نهاية السنة دي
-  @Prop({ type: Number, default: null, min: 0, max: 4 })
-  cumulativeGpa: number | null;
+  @Prop({ required: true })
+  cumulativeGpa: number; // المعدل التراكمي الكلي
 
-  @Prop({type: Number, required: true })
-  totalCredits:number
+  // الحالة الأكاديمية (هينقل، هيعيد، ولا سمر)
+  @Prop({
+    type: String,
+    enum: ['PROMOTED', 'REPEATING', 'SUMMER_COURSES', 'PENDING'],
+    default: 'PENDING',
+  })
+  academicStatus: string;
 
+  // مصفوفة المواد العادية
+  @Prop({ type: [CourseRecord], default: [] })
+  courses: CourseRecord[];
+
+  // مصفوفة مواد السمر
+  @Prop({ type: [CourseRecord], default: [] })
+  summerCourses: CourseRecord[];
 }
 
 export const AcademicRecordSchema = SchemaFactory.createForClass(AcademicRecord);
 
-// سجل واحد بس لكل طالب في كل سنة
+// سجل واحد بس لكل طالب في كل سنة دراسية
 AcademicRecordSchema.index(
-  { studentId: 1, academicYear: 1 },
+  { student: 1, academicYear: 1 },
   { unique: true },
 );

@@ -26,7 +26,7 @@ export class ClubService {
     // ==========================================
     // إنشاء Club جديد (Admin  فقط)
     // ==========================================
-    async createClub(dto: CreateClubDto, adminId: string) {
+    async createClub(dto: CreateClubDto, adminId: string, file?: Express.Multer.File) {
         const adminIdObj = new Types.ObjectId(adminId)
         const user = await this.userRepository.findById(adminIdObj)
 
@@ -60,6 +60,91 @@ export class ClubService {
         return clubResponse;
     }
 
+    async getDashboardStats(userRole: UserRolesEnum) {
+        // 1. حساب إجمالي عدد المجتمعات
+        const totalCommunities = await this.clubRepo.count();
+        const allCommunities = await this.clubRepo.find({});
+        if (userRole == UserRolesEnum.STUDENT)
+            return allCommunities;
+
+        const membersAggregation = await this.clubRepo.aggregate([
+            { $group: { _id: null, totalMembers: { $sum: '$membersCount' } } }
+        ]);
+        const totalMembers = membersAggregation.length > 0 ? membersAggregation[0].totalMembers : 0;
+
+        // 3. حساب المنشورات (كمثال إذا كان لديك موديل للمنشورات)
+        const totalPosts = await this.postRepo.count();
+        const pinnedPosts = await this.postRepo.count({ isPinned: true });
+
+
+
+        // 4. إرجاع البيانات بشكل منظم للفرونت إند
+        return {
+            communities: {
+                count: totalCommunities,
+                lists: allCommunities
+            },
+            totalPosts: {
+                count: totalPosts,
+            },
+            pinnedPosts: {
+                count: pinnedPosts,
+            },
+            totalMembers: {
+                count: totalMembers,
+            }
+        };
+    }
+
+    async rateCommunity(clubId: string, userId: string, score: number) {
+        // 1. نجيب المجتمع من الداتابيز
+        const community = await this.clubRepo.findById(clubId);
+        if (!community) {
+            throw new NotFoundException('Community not found');
+        }
+
+        // 2. نشوف هل الطالب ده قيّم المجتمع ده قبل كده ولا لأ
+        const existingRatingIndex = community.ratingsList.findIndex(
+            (r) => r.userId === userId
+        );
+
+        if (existingRatingIndex > -1) {
+            // لو قيّم قبل كده، نحدث التقييم بتاعه
+            community.ratingsList[existingRatingIndex].score = score;
+        } else {
+            // لو مقيمش، نضيف تقييم جديد
+            community.ratingsList.push({ userId, score });
+        }
+
+        // 3. نحسب المتوسط الجديد (مجموع التقييمات على عددهم)
+        const totalScore = community.ratingsList.reduce((sum, current) => sum + current.score, 0);
+        const averageRating = totalScore / community.ratingsList.length;
+
+        // 4. نقرب الرقم لعشري واحد (مثلاً 4.5 أو 4.9)
+        community.rating = Math.round(averageRating * 10) / 10;
+
+        // 5. نحفظ التعديلات في الداتابيز
+        await this.clubRepo.update({
+            filter: { _id: community._id }, // شرط البحث
+            update: community             // البيانات الجديدة
+        });
+
+        return {
+            message: 'Club Rated successfully',
+            newRating: community.rating
+        };
+    }
+async getTopRatedCommunities() {
+    const topCommunities = await this.clubRepo.aggregate([
+      // 1. الترتيب تنازلياً (-1) حسب حقل التقييم
+      { $sort: { rating: -1 } },
+      
+      // 2. إرجاع أول 3 نتائج فقط
+      { $limit: 3 }
+    ]);
+
+    return topCommunities;
+  }
     // ==========================================
     // جيب club واحد بالتفاصيل
     // ==========================================
@@ -107,7 +192,7 @@ export class ClubService {
     }
 
 
-    async deleteClub( clubId: string) {
+    async deleteClub(clubId: string) {
         const clubObjId = new Types.ObjectId(clubId);
 
         // 1. نتأكد إن الكوميونتي موجود أصلاً قبل ما نعمل أي حاجة
@@ -143,21 +228,15 @@ export class ClubService {
     }
 
 
-
-
-
-
-
-
     // ==========================================
     // Helper داخلي — بيستخدمه ClubMembershipService
     // عشان يزود أو ينقص الـ membersCount
     // ==========================================
     async incrementMembersCount(clubId: Types.ObjectId, value: 1 | -1) {
-            await this.clubRepo.findByIdAndUpdate({
-                id: clubId,
-                update: { $inc: { membersCount: value } },
-            });
-        }
-    
+        await this.clubRepo.findByIdAndUpdate({
+            id: clubId,
+            update: { $inc: { membersCount: value } },
+        });
+    }
+
 }

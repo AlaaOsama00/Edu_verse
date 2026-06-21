@@ -20,6 +20,7 @@ export class CreateClubDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsEnum(ClubTagEnum, { each: true })
+  @IsNotEmpty()
   tags: ClubTagEnum[];
 
 }

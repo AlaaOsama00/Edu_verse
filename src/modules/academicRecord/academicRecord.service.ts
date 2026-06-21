@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { GradeEnum, GradeStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
 import { EnrollmentRepository, UserRepository, AcademicRecordRepository, SubmissionRepository } from '@models/index';
 import { Types } from 'mongoose';
@@ -14,6 +14,98 @@ export class AcademicRecordService {
     private readonly submissionRepository: SubmissionRepository
   ) { }
 
+
+  // ==========================================
+  // جيب كل المواد اللي الطالب أخدها من أول ما دخل الكلية
+  // (بتجمع courses + summerCourses من كل الـ AcademicRecords بتاعته)
+  //
+  // فلاتر اختيارية:
+  // - academicYear: يجيب سنة معينة بس
+  // - semester: يجيب ترم معين بس (من كل السنين أو من السنة المحددة)
+  // ==========================================
+  async getAllCourses(
+    studentId: string,
+    academicYear?: string,
+    semester?: SemesterEnum,
+  ) {
+    const studentObjId = new Types.ObjectId(studentId);
+
+    // فلترة على مستوى الـ Record نفسه لو اليوزر حدد سنة معينة
+    const filter: any = { student: studentObjId };
+    if (academicYear) {
+      filter.academicYear = academicYear;
+    }
+
+    const records = await this.academicRecordRepository.find(filter);
+
+    if (records.length === 0) {
+      throw new NotFoundException('Not found');
+    }
+
+    // بنعمل flatten لكل المواد (العادية + السمر) في array واحدة مسطحة
+    // وبنضيف academicYear و isSummer لكل مادة عشان الـ Frontend يعرف مصدرها
+    const allCourses = records.flatMap((record) => {
+      const regularCourses = record.courses.map((course) => ({
+        ...course,
+        academicYear: record.academicYear,
+        isSummer: false,
+      }));
+
+      const summerCourses = record.summerCourses.map((course) => ({
+        ...course,
+        academicYear: record.academicYear,
+        isSummer: true,
+      }));
+
+      return [...regularCourses, ...summerCourses];
+    });
+
+    // فلترة بالترم — بعد الـ flatten، لأن الترم موجود جوه كل مادة مش جوه الـ Record
+    const filteredCourses = semester
+      ? allCourses.filter((course) => course.semester == semester)
+      : allCourses;
+
+    return filteredCourses;
+  }
+
+  // ==========================================
+  // جيب الـ GPA بتاع كل سنة فاتت على الطالب
+  //
+  // مش محتاجين نحدد "السنة الحالية" يدوي — لأن الـ AcademicRecord
+  // بيتعمل لكل سنة بعد ما تخلص بس، فلو الطالب في سنة 3،
+  // هيكون عنده بالفعل records لسنة 1 وسنة 2 بس، وده اللي هيترجع تلقائياً
+  // ==========================================
+  async getGpaHistory(studentId: string) {
+    const studentObjId = new Types.ObjectId(studentId);
+
+    const records = await this.academicRecordRepository.find({
+      student: studentObjId,
+    });
+
+    if (records.length === 0) {
+      throw new NotFoundException('Not found');
+    }
+
+    // بنرتب بالسنة عشان تطلع منظمة (سنة 1 الأول، بعدين 2، ...)
+    const sortedRecords = records.sort((a, b) =>
+      a.academicYear.localeCompare(b.academicYear),
+    );
+
+    return sortedRecords.map((record) => ({
+      academicYear: record.academicYear,
+      annualGpa: record.annualGpa,
+      cumulativeGpa: record.cumulativeGpa,
+      academicStatus: record.academicStatus,
+    }));
+  }
+
+
+
+
+
+
+
+  
   // ==========================================
   // المحرك الآلي الشامل (يشتغل تلقائياً لما الدكتور يرفع درجة)
   // ==========================================
@@ -153,7 +245,7 @@ export class AcademicRecordService {
 
     let prevTotalPoints = 0, prevTotalHours = 0;
     previousRecords.forEach(r => {
-      prevTotalPoints += (r.yearGpa ?? 0 * 15);
+      prevTotalPoints += (r.annualGpa ?? 0 * 15);
       prevTotalHours += 15;
     });
 
@@ -290,9 +382,8 @@ export class AcademicRecordService {
 
       return {
         academicYear: record.academicYear,
-        yearGpa: record.yearGpa,
+        yearGpa: record.annualGpa,
         cumulativeGpa: record.cumulativeGpa,
-        failedCount: record.failedCount,
         // هنا نربط التيرمات اللي عملناها في الـ Map
         semesters: historyMap.get(record.academicYear)?.semesters || {}
       };

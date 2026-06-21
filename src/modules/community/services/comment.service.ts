@@ -1,5 +1,5 @@
 import { UserRolesEnum } from '@utils/enum';
-import { Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { PostService } from './post.service';
 import { ClubMembershipService } from './clubMembership.service';
@@ -34,6 +34,7 @@ export class CommentService {
         if (!membership) {
             throw new ForbiddenException('You must be a member of this club to perform this action');
         }
+
         // 3. اعمل الـ Comment
         const comment = await this.commentRepo.create({
             postId: postObjId,
@@ -70,9 +71,17 @@ export class CommentService {
             throw new ForbiddenException('You must be a member of this club to perform this action');
         }
 
-        return this.commentRepo.find(
+        await this.commentRepo.find(
             { postId: postObjId },
-            { sort: { createdAt: -1 } }, // الأقدم الأول (ترتيب طبيعي للكومنتات)
+            {
+                sort: { createdAt: -1 },
+                populate: [
+                    {
+                        path: 'authorId',
+                        select: 'firstName',
+                    },
+                ],
+            },
         );
     }
 
@@ -80,12 +89,12 @@ export class CommentService {
     // حذف Comment (صاحب الكومنت بس)
     // ==========================================
     async deleteComment(commentId: string, userId: string) {
-        const userObjId = new Types.ObjectId(userId) 
+        const userObjId = new Types.ObjectId(userId)
         const user = await this.userRepository.findById(userObjId);
         if (!user) {
             throw new NotFoundException("User Not Found");
         }
-     
+
         const comment = await this.commentRepo.findById(commentId);
 
         if (!comment) {
@@ -93,7 +102,7 @@ export class CommentService {
         }
 
         // بس صاحب الكومنت يقدر يمسحه
-        if (user.role==UserRolesEnum.STUDENT &&comment.authorId.toString() !== userId) {
+        if (user.role == UserRolesEnum.STUDENT && comment.authorId.toString() !== userId) {
             throw new ForbiddenException('Unauthorized');
         }
 

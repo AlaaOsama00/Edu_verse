@@ -21,13 +21,20 @@ export abstract class AbstractRepository<T> {
     return await this.model.insertMany(data)
   }
 
-  async find(
-    filter: FilterQuery<T>,
-    projection?: ProjectionType<T>,
-    options?: QueryOptions<T>
-  ) {
-    return await this.model.find(filter || {}, projection, options)
+async find(
+  filter: FilterQuery<T>,
+  projection?: ProjectionType<T>,
+  options?: QueryOptions<T>,
+  populate?: any,
+) {
+  let query = this.model.find(filter || {}, projection, options);
+
+  if (populate) {
+    query = query.populate(populate);
   }
+
+  return query.exec();
+}
 
   async findOne({
     filter={},

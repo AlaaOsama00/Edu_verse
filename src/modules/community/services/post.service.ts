@@ -11,6 +11,7 @@ import { ClubMembershipRepository, PostRepository, UserRepository } from '@model
 import { CreatePostDto } from '../Dto/post/create-post-dto';
 import { UserRolesEnum } from '@utils/enum';
 import { CommunityGateway } from '../community.gateway';
+import { UpdatePostDto } from '../Dto/post/UpdatePostDto';
 
 
 
@@ -71,11 +72,16 @@ export class PostService {
             likes: [],
             commentsCount: 0,
         });
+      const postData = JSON.parse(JSON.stringify(post)); // هذه الطريقة تضمن تحويل الـ Document إلى كائن جافاسكريبت عادي وتمنع أي مشاكل TypeScript
 
+        const postWithAuthor = {
+            ...postData,
+            authorName: user.fullName
+        };
         // 📡 بلّغ كل أعضاء الـ Club إن فيه بوست جديد
-         this.gateway.emitNewPost(clubId, post);
+        this.gateway.emitNewPost(clubId, post);
 
-        return post;
+        return postWithAuthor;
     }
 
     // ==========================================
@@ -84,6 +90,8 @@ export class PostService {
     async getClubPosts(clubId: string, userId: string) {
         const clubObjId = new Types.ObjectId(clubId);
         const userObjId = new Types.ObjectId(userId);
+        
+        // 1. التأكد من المستخدم وصلاحياته
         const user = await this.userRepository.findById(userObjId);
         if (!user) {
             throw new NotFoundException("User Not Found");
@@ -96,18 +104,44 @@ export class PostService {
         if (user.role == UserRolesEnum.STUDENT && !membership) {
             throw new ForbiddenException('You must be a member of this club to perform this action');
         }
+
+        // 2. إحضار البوستات
         const posts = await this.postRepo.find(
             { clubId: clubObjId },
             {},
             { sort: { createdAt: -1 } }, // الأحدث الأول
         );
 
-        // نضيف flag: هل اليوزر ده عمل Like على البوست ده؟
-        return posts.map((post) => ({
-            ...post.toObject(),
-            isLiked: post.likes.some((id) => id.toString() === userId),
-            likesCount: post.likes.length,
-        }));
+        // --- بداية إضافة الـ firstName ---
+
+        // 3. نجمع الـ IDs بتاعت أصحاب البوستات (بدون تكرار)
+        const authorIds = [...new Set(posts.map(post => post.authorId.toString()))];
+
+        // 4. نجيب بياناتهم كلهم في Query واحد
+        // (لو الـ repository بتاعك بيحتاج { filter: ... } ضيفيها زي ما عملتي في الـ membership)
+        const authors = await this.userRepository.find({
+            _id: { $in: authorIds.map(id => new Types.ObjectId(id)) }
+        });
+
+        // 5. نعمل Map عشان نوصل للاسم الأول بسرعة
+        const authorsMap = new Map();
+        authors.forEach(author => {
+            authorsMap.set(author._id.toString(), author.fullName); // 👈 بناخد الـ firstName بس
+        });
+
+        // --- نهاية الإضافة ---
+
+        // 6. ندمج البيانات ونرجعها
+        return posts.map((post) => {
+            const postData = post.toObject ? post.toObject() : JSON.parse(JSON.stringify(post));
+            
+            return {
+                ...postData,
+                authorName: authorsMap.get(post.authorId.toString()) || 'Unknown User', // 👈 الاسم الأول هيرجع هنا
+                isLiked: post.likes.some((id) => id.toString() == userId),
+                likesCount: post.likes.length,
+            };
+        });
     }
 
     // ==========================================
@@ -169,6 +203,49 @@ export class PostService {
         }
 
         return { message: isLikedNow ? 'Like Done' : 'Like Removed ', likesCount };
+    }
+
+    // ==========================================
+    // تعديل نص البوست (لصاحب البوست أو الأدمن)
+    // لا يمكن تعديل الصور/الملفات
+    // ==========================================
+    async updatePost(postId: string, userId: string, dto: UpdatePostDto) {
+        const postObjId = new Types.ObjectId(postId);
+        const userObjId = new Types.ObjectId(userId);
+
+        // 1. نجيب بيانات المستخدم
+        const user = await this.userRepository.findById(userObjId);
+        if (!user) {
+            throw new NotFoundException("User Not Found");
+        }
+
+        // 2. نجيب البوست
+        const post = await this.postRepo.findById(postObjId);
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        // 3. نتحقق من الصلاحيات (أدمن أو صاحب البوست)
+        const isAdmin = user.role == UserRolesEnum.ADMIN;
+        const isAuthor = post.authorId.toString() == userId;
+
+        if (!isAdmin && !isAuthor) {
+            throw new ForbiddenException('You do not have permission to update this post');
+        }
+
+        // 4. تحديث النص في قاعدة البيانات
+        const updatedPost = await this.postRepo.findByIdAndUpdate({
+            id: postObjId,
+            update: {
+                $set: {
+                    content: dto.content ?? post.content, // بنحدث النص بس
+                }
+            },
+            options: { new: true } // عشان نرجع الداتا بعد التعديل
+        });
+
+
+        return updatedPost;
     }
 
     // ==========================================
@@ -240,7 +317,7 @@ export class PostService {
         });
 
         // 📡 بلّغ الكل إن فيه Resource جديدة ظهرت
-       this.gateway.emitPostPinned(post.clubId.toString(), updatedPost);
+        this.gateway.emitPostPinned(post.clubId.toString(), updatedPost);
 
         return updatedPost;
     }
@@ -273,7 +350,7 @@ export class PostService {
             },
         });
 
-         this.gateway.emitPostUnpinned(post.clubId.toString(), postId);
+        this.gateway.emitPostUnpinned(post.clubId.toString(), postId);
 
         return { message: 'Admin unpinned this post' };
     }
@@ -285,26 +362,30 @@ export class PostService {
     async getPinnedPosts(clubId: string, userId: string) {
         const clubObjId = new Types.ObjectId(clubId);
         const userObjId = new Types.ObjectId(userId);
-
-         const membership = await this.membershipRepo.findOne({
+        const user= await this.userRepository.findById(userObjId)
+        const membership = await this.membershipRepo.findOne({
             filter: { studentId: userObjId, clubId: clubObjId },
         });
-        if (!membership) {
-                throw new ForbiddenException('You must be a member of this club to perform this action');
-            }
+        if (!user||!membership && user.role==UserRolesEnum.STUDENT) {
+            throw new ForbiddenException('You must be a member of this club to perform this action');
+        }
 
+        
         const pinnedPosts = await this.postRepo.find(
             { clubId: clubObjId, isPinned: true },
             {},
             { sort: { pinnedAt: -1 } }, // الأحدث pin الأول
         );
 
+        if(pinnedPosts.length==0){
+            return {message:"No posts pinned yet"}
+        }
         // بنرجع نسخة "Preview" بس — مش البوست كامل
         // الـ Frontend هيستخدمها في خانة Useful Resources الصغيرة
         return pinnedPosts.map((post) => ({
             postId: post._id,
             preview: this.buildPreviewText(post.content),
-            hasImage: !!post.mediaUrl,
+            hasImage: post.mediaUrl,
             pinnedAt: post.pinnedAt,
         }));
     }
@@ -323,7 +404,7 @@ export class PostService {
     }
 
 
-        // ==========================================
+    // ==========================================
     // Helper داخلي — بيستخدمه CommentService
     // عشان يجيب الـ clubId من البوست من غير ما يعمل query تاني
     // ==========================================

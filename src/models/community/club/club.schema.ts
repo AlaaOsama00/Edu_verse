@@ -16,14 +16,23 @@ export class Club {
   @Prop({ type: [String], enum: ClubTagEnum, default: [] })
   tags: ClubTagEnum[];
 
-   // عدد الأعضاء — بيتحدث كل ما حد عمل join أو leave
+  // عدد الأعضاء — بيتحدث كل ما حد عمل join أو leave
   // Denormalization عشان نعرضه على الكارد من غير ما نعمل count query
   @Prop({ type: Number, default: 0 })
   membersCount: number;
 
-  // rating من 0 لـ 5 (اللي بيظهر على الكارد)
   @Prop({ type: Number, default: 0, min: 0, max: 5 })
   rating: number;
+  // rating من 0 لـ 5 (اللي بيظهر على الكارد)
+  // ضيفي الجزء ده جوه Community Schema
+  @Prop({
+    type: [{
+      userId: { type: String, required: true },
+      score: { type: Number, required: true, min: 1, max: 5 }
+    }],
+    default: []
+  })
+  ratingsList: { userId: string, score: number }[];
 
 }
 

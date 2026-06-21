@@ -71,20 +71,28 @@ export class ClubMembershipService {
     // 3. نقص الـ membersCount في الـ Club بـ 1
     await this.clubService.incrementMembersCount(clubObjId, -1);
 
-    return { message: 'Done' };
+    return { message: 'you left' };
   }
 
 
   // =====================
   // جيب كل members لـ 
   // =====================
-  async getClubMembers(clubId: string) {
-    return this.membershipRepo.find({
-       clubId: new Types.ObjectId(clubId) ,
-    });
+async getClubMembers(clubId: string) {
+  const members = await this.membershipRepo['model']
+    .find({
+      clubId: new Types.ObjectId(clubId),
+    })
+    .populate('studentId', 'firstName');
+
+  if (!members.length) {
+    return {
+      message: 'No members found in this club',
+    };
   }
 
-
+  return members;
+}
  
 }
 

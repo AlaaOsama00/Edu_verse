@@ -22,6 +22,8 @@ import { CreatePostDto } from './Dto/post/create-post-dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateCommentDto } from './Dto/comment/create-comment.dto';
 import { CommentService } from './services/comment.service';
+import { RateCommunityDto } from './Dto/club/rate-community.dto';
+import { UpdatePostDto } from './Dto/post/UpdatePostDto';
 
 @Controller('community')
 export class CommunityController {
@@ -39,10 +41,42 @@ export class CommunityController {
 
   @Post('create-club')
   @Auth(UserRolesEnum.ADMIN)
-  async createClub(@Body() dto: CreateClubDto, @CurrentUser('_id') adminId) {
-    return this.clubService.createClub(dto, adminId);
+  @UseInterceptors(FileInterceptor('file')) // 👈 ضفنا الانترسبتور هنا عشان يستقبل الملف
+  async createClub(@Body() dto: CreateClubDto, @CurrentUser('_id') adminId, @UploadedFile() file?: Express.Multer.File) {
+    return this.clubService.createClub(dto, adminId, file);
   }
 
+  @Get('status')
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
+  async getStats(@Req() req: any) {
+    const role = req.user.role;
+    const stats = await this.clubService.getDashboardStats(role);
+    return {
+      data: stats,
+    };
+  }
+  @Post(':clubId/rate')
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
+  async rateCommunity(
+    @Param('clubId') communityId: string,
+    @Body() body: RateCommunityDto,
+    @Req() req: any
+  ) {
+    // بنجيب الـ id بتاع الطالب من التوكن (تأكدي من اسم الحقل حسب التوكن بتاعك)
+    const userId = req.user.id;
+    return this.clubService.rateCommunity(communityId, userId, body.score);
+  }
+  @Get('top-rated')
+  @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
+  async getTopRated() {
+    const data = await this.clubService.getTopRatedCommunities();
+
+    return {
+      message: 'Top 3 communities fetched successfully',
+      count: data.length,
+      data: data,
+    };
+  }
   // GET /community/clubs/:clubId
   @Get('clubs/:clubId')
   @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
@@ -61,7 +95,7 @@ export class CommunityController {
   async deleteClub(@Param('clubId') clubId: string) {
     return this.clubService.deleteClub(clubId);
   }
-  
+
   // ==========================================
   // MEMBERSHIP — Join / Leave
   // ==========================================
@@ -104,12 +138,24 @@ export class CommunityController {
     // 👈 بعتنا الـ file للـ Service
     return this.postService.createPost(clubId, dto, userId, file);
   }
+  
+
 
   // GET /community/club/:clubId/posts — Feed بتاع الـ club
   @Get('club/:clubId/posts')
   @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
   async getClubPosts(@Param('clubId') clubId: string, @CurrentUser('_id') userId) {
     return this.postService.getClubPosts(clubId, userId);
+  }
+
+  @Patch('post/:postId')
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.ADMIN)
+  async updatePost(
+    @Param('postId') postId: string,
+    @CurrentUser('_id') userId: string,
+    @Body() dto: UpdatePostDto, 
+  ) {
+    return this.postService.updatePost(postId, userId, dto);
   }
 
   // DELETE /community/post/:postId — صاحب البوست بس

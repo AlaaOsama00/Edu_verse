@@ -2,7 +2,7 @@ export enum ActivationEnum {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
-// ====== حالة التسليم (جديد) ======
+
 export enum SubmissionStatusEnum {
   NOT_SUBMITTED = 'not_submitted', // الحالة الافتراضية: الطالب لسه ضغط على زرار التسليم ولا رفع ملف
   SUBMITTED = 'submitted',         // الطالب رفع الملف/الواجب قبل ما موعد التسليم يقفل
@@ -66,13 +66,10 @@ export enum SemesterEnum {
   SUMMER = 'SUMMER',
 }
 
-
 export enum StudentStatusEnum {
   ENROLLED = 'ENROLLED',
   DROPPED = 'DROPPED',
-}//to do in 4 th year term  2
-
-
+}
 
 export enum ClubTagEnum {
   UI = '#UI',
