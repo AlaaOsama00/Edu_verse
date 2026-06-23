@@ -255,9 +255,10 @@ export class EnrollmentService {
       completedCoursesCount,
       totalCredits,
       availableCourseCount,
+        tasks,
+      openRigister,
       currentEnrolledCourses,
-      tasks,
-      openRigister
+    
     };
   }
 
