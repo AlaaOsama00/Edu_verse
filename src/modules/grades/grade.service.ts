@@ -1,6 +1,25 @@
 import { EnrollmentRepository, UserRepository, StudyPlanRepository, CourseRepository } from '@models/index';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { BulkGradeDto } from './dtos/bulk-grade.dto';
+import { AcademicRecordService } from '../academicRecord/academicRecord.service';
+import { GradeEnum } from '@utils/enum';
+
+function mapScoreToGradeLetter(score: number): GradeEnum {
+  if (score >= 97) return GradeEnum.A_PLUS;
+  if (score >= 93) return GradeEnum.A;
+  if (score >= 90) return GradeEnum.A_MINUS;
+  if (score >= 87) return GradeEnum.B_PLUS;
+  if (score >= 83) return GradeEnum.B;
+  if (score >= 80) return GradeEnum.B_MINUS;
+  if (score >= 77) return GradeEnum.C_PLUS;
+  if (score >= 73) return GradeEnum.C;
+  if (score >= 70) return GradeEnum.C_MINUS;
+  if (score >= 67) return GradeEnum.D_PLUS;
+  if (score >= 63) return GradeEnum.D;
+  if (score >= 60) return GradeEnum.D_MINUS;
+  return GradeEnum.F;
+}
 
 @Injectable()
 export class GradeService {
@@ -9,6 +28,7 @@ export class GradeService {
         private readonly userRepo: UserRepository,
         private readonly studyPlanRepo: StudyPlanRepository,
         private readonly courseRepo: CourseRepository,
+        private readonly academicRecordService: AcademicRecordService,
     ) { }
 
     /**
@@ -174,9 +194,101 @@ export class GradeService {
 
 
 
+    // ==========================================
+    // 3. رفع درجات الامتحان من الإكسل (براكتيكال/ميدترم/فاينال)
+    // ==========================================
+    async UploadGrades(courseId: string, dto: BulkGradeDto[]) {
+      if (!dto || dto.length === 0) {
+        throw new BadRequestException('No grade records provided');
+      }
 
+      const studentsToEvaluate = new Map<string, { studentId: Types.ObjectId, academicYear: string, semester: any }>();
 
+      for (const item of dto) {
+        const student = await this.userRepo.findOne({ filter: { academicId: item.studentAcademicId } });
+        if (!student) {
+          throw new BadRequestException(`Student with academic ID ${item.studentAcademicId} not found`);
+        }
 
+        const enrollment = await this.enrollmentRepo.findOne({
+          filter: {
+            studentId: student._id,
+            courseId: new Types.ObjectId(courseId),
+          }
+        });
+
+        if (!enrollment) {
+          throw new BadRequestException(`Enrollment not found for student ${item.studentAcademicId} in course ${courseId}`);
+        }
+
+        const currentMarks = enrollment.marks || { midterm: 0, final: 0, practical: 0, assignment1: 0, assignment2: 0 };
+        const updatedMarks = {
+          midterm: item.midterm != undefined ? item.midterm : (currentMarks.midterm ?? 0),
+          final: item.final != undefined ? item.final : (currentMarks.final ?? 0),
+          practical: item.practical != undefined ? item.practical : (currentMarks.practical ?? 0),
+          assignment1: currentMarks.assignment1 ?? 0,
+          assignment2: currentMarks.assignment2 ?? 0,
+        };
+
+        // Recalculate scores
+        let totalScore = 0;
+        Object.values(updatedMarks).forEach((mark: number) => {
+          if (typeof mark === 'number') {
+            totalScore += mark;
+          }
+        });
+
+        // Determine passing and penalty
+        const isPassed = totalScore >= 60;
+        const earnedGrade = mapScoreToGradeLetter(totalScore);
+        let finalGrade = earnedGrade;
+        let hasPenalty = !isPassed; // إذا سقطت المادة (hasPenalty = true)
+
+        if (enrollment.attemptCount === 2) {
+          const gradeScale = [
+            GradeEnum.A_PLUS, GradeEnum.A, GradeEnum.A_MINUS,
+            GradeEnum.B_PLUS, GradeEnum.B, GradeEnum.B_MINUS,
+            GradeEnum.C_PLUS, GradeEnum.C, GradeEnum.C_MINUS,
+            GradeEnum.D_PLUS, GradeEnum.D, GradeEnum.D_MINUS,
+            GradeEnum.F
+          ];
+          const currentIndex = gradeScale.indexOf(earnedGrade);
+          if (currentIndex !== -1 && earnedGrade !== GradeEnum.F) {
+            const nextIndex = Math.min(currentIndex + 1, gradeScale.length - 1);
+            finalGrade = gradeScale[nextIndex];
+          } else {
+            finalGrade = GradeEnum.F;
+          }
+          hasPenalty = true;
+        }
+
+        // Save enrollment
+        await this.enrollmentRepo.findOneAndUpdate({
+          filter: { _id: enrollment._id },
+          update: {
+            $set: {
+              marks: updatedMarks,
+              totalScore,
+              earnedGrade,
+              finalGrade,
+              isPassed,
+              hasPenalty, // يتم تخزينها وتحديثها هنا
+            }
+          }
+        });
+
+        // Save info for evaluation
+        studentsToEvaluate.set(student._id.toString(), {
+          studentId: student._id,
+          academicYear: enrollment.academicYear,
+          semester: enrollment.semester,
+        });
+      }
+
+     
+
+      return { message: 'Grades uploaded and processed successfully.' };
+    }
   
 
 

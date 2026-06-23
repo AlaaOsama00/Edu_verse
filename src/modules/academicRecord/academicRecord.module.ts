@@ -28,6 +28,7 @@ import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.
     CourseRepository,
     JwtService,
     SubmissionRepository
-],
+  ],
+  exports: [AcademicRecordService, AcademicRecordRepository],
 })
 export class AcademicRecordModule {}

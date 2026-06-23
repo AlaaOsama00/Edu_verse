@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { GradeService } from './grade.service';
 import { CurrentUser } from '@decorators/userDecorator';
 import { Auth } from '@decorators/authDecorator';
 import { UserRolesEnum } from '@utils/enum';
+import { BulkGradeDto } from './dtos/bulk-grade.dto';
 
 @Controller('grades')
 export class GradeController {
@@ -43,5 +44,18 @@ export class GradeController {
         @Query('semester') semester: string,
     ) {
         return this.gradeService.getMyCurrentGrades(studentId, semester);
+    }
+
+
+    // ==========================================
+    // 3. رفع درجات الامتحان من الإكسل (براكتيكال/ميدترم/فاينال)
+    // ==========================================
+    @Post('grade-upload/:courseId')
+    @Auth(UserRolesEnum.PROFESSOR, UserRolesEnum.ADMIN)
+    async uploadGrades(
+        @Param('courseId') courseId: string,
+        @Body() dto: BulkGradeDto[], // Body عادي مش Form-Data
+    ) {
+        return this.gradeService.UploadGrades(courseId, dto);
     }
 }

@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { GradeController } from './grade.controller';
 import { GradeService } from './grade.service';
+import { AcademicRecordModule } from '../academicRecord/academicRecord.module';
 import {
   Enrollment,
   EnrollmentSchema,
@@ -26,6 +27,7 @@ import {
       { name: Course.name, schema: CourseSchema },
       { name: StudyPlan.name, schema: StudyPlanSchema },
     ]),
+    AcademicRecordModule,
   ],
   controllers: [GradeController],
   providers: [

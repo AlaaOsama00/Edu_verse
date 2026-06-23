@@ -199,10 +199,7 @@ export class EnrollmentService {
     };
   }
 
-
-
-  
-  //المواد بتاعته 
+ 
   async getStudentEnrollmentCourses(currentUser: string) {
 
     const studentOBJ = new Types.ObjectId(currentUser);

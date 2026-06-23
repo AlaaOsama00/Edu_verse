@@ -81,7 +81,7 @@ export class AcademicRecordService {
       studentId: studentObjId,
     });
 
-    if (records.length === 0) {
+    if (records.length == 0) {
       throw new NotFoundException('Not found');
     }
 
@@ -98,234 +98,230 @@ export class AcademicRecordService {
 
 
 
-
-
-
-
   
-  // ==========================================
-  // المحرك الآلي الشامل (يشتغل تلقائياً لما الدكتور يرفع درجة)
-  // ==========================================
-  async evaluateStudentProgress(studentId: Types.ObjectId, academicYear: string, currentSemester: SemesterEnum) {
+  // // ==========================================
+  // // المحرك الآلي الشامل (يشتغل تلقائياً لما الدكتور يرفع درجة)
+  // // ==========================================
+  // async evaluateStudentProgress(studentId: Types.ObjectId, academicYear: string, currentSemester: SemesterEnum) {
 
-    // 1. جيب كل مواد الطالب في السنة دي (فال، سبرينج، صيف)
-    const allYearEnrollments = await this.enrollmentRepo.find(
-      {
-        studentId: studentId,
-        academicYear: academicYear,
-      },
-      {},
-      {},
-      { path: 'courseId' }
-    );
+  //   // 1. جيب كل مواد الطالب في السنة دي (فال، سبرينج، صيف)
+  //   const allYearEnrollments = await this.enrollmentRepo.find(
+  //     {
+  //       studentId: studentId,
+  //       academicYear: academicYear,
+  //     },
+  //     {},
+  //     {},
+  //     { path: 'courseId' }
+  //   );
 
-    if (allYearEnrollments.length === 0) return;
+  //   if (allYearEnrollments.length === 0) return;
 
-    // 2. فحص أمني: لو لسه في Fall أو Spring، اخرج فوراً
-    if (currentSemester === SemesterEnum.FALL || currentSemester === SemesterEnum.SPRING) {
-      return;
-    }
+  //   // 2. فحص أمني: لو لسه في Fall أو Spring، اخرج فوراً
+  //   if (currentSemester === SemesterEnum.FALL || currentSemester === SemesterEnum.SPRING) {
+  //     return;
+  //   }
 
-    // 3. فحص أمني: لو الطالب ده معيد السنة، مفيش لازمة للحسابات
-    const student = await this.userRepository.findById(studentId);
-    if (!student || student.isRepeating) return;
+  //   // 3. فحص أمني: لو الطالب ده معيد السنة، مفيش لازمة للحسابات
+  //   const student = await this.userRepository.findById(studentId);
+  //   if (!student || student.isRepeating) return;
 
-    // ==========================================
-    // 4. الشرط الأمني: هل كل الدكاترة خلصوا رفع الدرجات؟
-    // ==========================================
-    const academicCourses = allYearEnrollments.filter(e => !e.isTraining);
-    const hasUngradedCourses = academicCourses.some(e => e.totalScore === null || e.totalScore === undefined);
+  //   // ==========================================
+  //   // 4. الشرط الأمني: هل كل الدكاترة خلصوا رفع الدرجات؟
+  //   // ==========================================
+  //   const academicCourses = allYearEnrollments.filter(e => !e.isTraining);
+  //   const hasUngradedCourses = academicCourses.some(e => e.totalScore === null || e.totalScore === undefined);
 
-    if (hasUngradedCourses) {
-      return; // في درجات ناقصة، رجع بعدين
-    }
+  //   if (hasUngradedCourses) {
+  //     return; // في درجات ناقصة، رجع بعدين
+  //   }
 
-    // ==========================================
-    // 5. معالجة التدريب (لو رفع الـ URL يبقى نجح فوراً)
-    // ==========================================
-    for (const enrollment of allYearEnrollments) {
-      if (enrollment.isTraining && !enrollment.isTrainingApproved) {
-        if (enrollment.trainingProofPdfUrl && enrollment.trainingProofPdfUrl.trim() !== '') {
-          await this.enrollmentRepo.findOneAndUpdate({
-            filter: { _id: enrollment._id },
-            update: {
-              $set: {
-                isTrainingApproved: true,
-                totalScore: 100,
-                earnedGrade: GradeEnum.A_PLUS,
-                finalGrade: GradeEnum.A_PLUS,
-                isPassed: true
-              }
-            }
-          });
-        }
-      }
-    }
+  //   // ==========================================
+  //   // 5. معالجة التدريب (لو رفع الـ URL يبقى نجح فوراً)
+  //   // ==========================================
+  //   for (const enrollment of allYearEnrollments) {
+  //     if (enrollment.isTraining && !enrollment.isTrainingApproved) {
+  //       if (enrollment.trainingProofPdfUrl && enrollment.trainingProofPdfUrl.trim() !== '') {
+  //         await this.enrollmentRepo.findOneAndUpdate({
+  //           filter: { _id: enrollment._id },
+  //           update: {
+  //             $set: {
+  //               isTrainingApproved: true,
+  //               totalScore: 100,
+  //               earnedGrade: GradeEnum.A_PLUS,
+  //               finalGrade: GradeEnum.A_PLUS,
+  //               isPassed: true
+  //             }
+  //           }
+  //         });
+  //       }
+  //     }
+  //   }
 
-    // ==========================================
-    // 6. إعادة حساب حالة النجاح والرسوب
-    // ==========================================
-    const failedAcademicCourses = academicCourses.filter(e => !e.isPassed);
-    const totalFailures = failedAcademicCourses.length;
+  //   // ==========================================
+  //   // 6. إعادة حساب حالة النجاح والرسوب
+  //   // ==========================================
+  //   const failedAcademicCourses = academicCourses.filter(e => !e.isPassed);
+  //   const totalFailures = failedAcademicCourses.length;
 
-    // ==========================================
-    // الحالة أ: رسوبتين أو أكتر -> يعيد السنة
-    // ==========================================
-    if (totalFailures > 1) {
-      await this.userRepository.findOneAndUpdate({
-        filter: { _id: studentId },
-        update: { $set: { isRepeating: true } }
-      });
+  //   // ==========================================
+  //   // الحالة أ: رسوبتين أو أكتر -> يعيد السنة
+  //   // ==========================================
+  //   if (totalFailures > 1) {
+  //     await this.userRepository.findOneAndUpdate({
+  //       filter: { _id: studentId },
+  //       update: { $set: { isRepeating: true } }
+  //     });
 
-      await this.academicRecordRepository.findOneAndUpdate({
-        filter: { studentId: studentId, academicYear: academicYear },
-        update: {
-          $set: {
-            mustRepeatYear: true,
-            yearGpa: 0,
-            cumulativeGpa: 0,
-            failedCount: totalFailures,
-            hasPenalty: false
-          }
-        },
-        options: { upsert: true, new: true }
-      });
+  //     await this.academicRecordRepository.findOneAndUpdate({
+  //       filter: { studentId: studentId, academicYear: academicYear },
+  //       update: {
+  //         $set: {
+  //           mustRepeatYear: true,
+  //           yearGpa: 0,
+  //           cumulativeGpa: 0,
+  //           failedCount: totalFailures,
+  //           hasPenalty: false
+  //         }
+  //       },
+  //       options: { upsert: true, new: true }
+  //     });
 
-      return;
-    }
+  //     return;
+  //   }
 
-    // ==========================================
-    // الحالة ب: نجاح كامل أو رسوبة واحدة
-    // ==========================================
+  //   // ==========================================
+  //   // الحالة ب: نجاح كامل أو رسوبة واحدة
+  //   // ==========================================
 
-    let totalQualityPoints = 0;
-    let totalCreditHours = 0;
-    let hasAnyPenalty = false;
+  //   let totalQualityPoints = 0;
+  //   let totalCreditHours = 0;
+  //   let hasAnyPenalty = false;
 
-    for (const course of academicCourses) {
-      // استخدام الـ Type Casting عشان الـ TypeScript يرضى
-      let finalGradeToSave = course.earnedGrade as GradeEnum;
+  //   for (const course of academicCourses) {
+  //     // استخدام الـ Type Casting عشان الـ TypeScript يرضى
+  //     let finalGradeToSave = course.earnedGrade as GradeEnum;
 
-      // لو المادة دي مرسوبة وسابقة رسوب (يعني دخل الصيف عشانها)
-      if (!course.isPassed && course.summerReason === SummerReasonEnum.FAILURE) {
-        // استخدام الدالة اللي في الـ Helpers
-        finalGradeToSave = applyGradePenalty(finalGradeToSave, 1);
-        hasAnyPenalty = true;
+  //     // لو المادة دي مرسوبة وسابقة رسوب (يعني دخل الصيف عشانها)
+  //     if (!course.isPassed && course.summerReason === SummerReasonEnum.FAILURE) {
+  //       // استخدام الدالة اللي في الـ Helpers
+  //       finalGradeToSave = applyGradePenalty(finalGradeToSave, 1);
+  //       hasAnyPenalty = true;
 
-        await this.enrollmentRepo.findOneAndUpdate({
-          filter: { _id: course._id },
-          update: { $set: { finalGrade: finalGradeToSave, hasPenalty: true } }
-        });
-      }
-      else if (course.isPassed) {
-        await this.enrollmentRepo.findOneAndUpdate({
-          filter: { _id: course._id },
-          update: { $set: { finalGrade: finalGradeToSave } }
-        });
-      }
+  //       await this.enrollmentRepo.findOneAndUpdate({
+  //         filter: { _id: course._id },
+  //         update: { $set: { finalGrade: finalGradeToSave, hasPenalty: true } }
+  //       });
+  //     }
+  //     else if (course.isPassed) {
+  //       await this.enrollmentRepo.findOneAndUpdate({
+  //         filter: { _id: course._id },
+  //         update: { $set: { finalGrade: finalGradeToSave } }
+  //       });
+  //     }
 
-      // استخدام الدالة اللي في الـ Helpers لحساب النقاط
-      const points = gradeToPoints(finalGradeToSave);
-      const hours = course.creditHours || 0;
+  //     // استخدام الدالة اللي في الـ Helpers لحساب النقاط
+  //     const points = gradeToPoints(finalGradeToSave);
+  //     const hours = course.creditHours || 0;
 
-      totalQualityPoints += points * hours;
-      totalCreditHours += hours;
-    }
+  //     totalQualityPoints += points * hours;
+  //     totalCreditHours += hours;
+  //   }
 
-    // ==========================================
-    // 7. حساب المعدل الفصلي والتراكمي
-    // ==========================================
-    const yearGpa = totalCreditHours > 0 ? (totalQualityPoints / totalCreditHours) : 0;
+  //   // ==========================================
+  //   // 7. حساب المعدل الفصلي والتراكمي
+  //   // ==========================================
+  //   const yearGpa = totalCreditHours > 0 ? (totalQualityPoints / totalCreditHours) : 0;
 
-    const previousRecords = await this.academicRecordRepository.find({
-      studentId: studentId,
-      academicYear: { $lt: academicYear },
-      mustRepeatYear: { $ne: true }
-    });
+  //   const previousRecords = await this.academicRecordRepository.find({
+  //     studentId: studentId,
+  //     academicYear: { $lt: academicYear },
+  //     mustRepeatYear: { $ne: true }
+  //   });
 
-    let prevTotalPoints = 0, prevTotalHours = 0;
-    previousRecords.forEach(r => {
-    //  prevTotalPoints += (r.annualGpa ?? 0 * 15);
-      prevTotalHours += 15;
-    });
+  //   let prevTotalPoints = 0, prevTotalHours = 0;
+  //   previousRecords.forEach(r => {
+  //   //  prevTotalPoints += (r.annualGpa ?? 0 * 15);
+  //     prevTotalHours += 15;
+  //   });
 
-    const cumulativeGpa = (totalCreditHours + prevTotalHours) > 0
-      ? ((totalQualityPoints + prevTotalPoints) / (totalCreditHours + prevTotalHours))
-      : yearGpa;
+  //   const cumulativeGpa = (totalCreditHours + prevTotalHours) > 0
+  //     ? ((totalQualityPoints + prevTotalPoints) / (totalCreditHours + prevTotalHours))
+  //     : yearGpa;
 
-    // ==========================================
-    // 8. حفظ السجل الأكاديمي
-    // ==========================================
-    const regularCourses = allYearEnrollments
-      .filter((e: any) => !e.isTraining && e.semester !== SemesterEnum.SUMMER)
-      .map((e: any) => {
-        const course = e.courseId as any;
-        return {
-          courseId: course?._id || e.courseId,
-          code: course?.code || 'N/A',
-          name: course?.name || 'N/A',
-          score: e.totalScore ?? 0,
-          grade: e.finalGrade ?? 'N/A',
-        };
-      });
+  //   // ==========================================
+  //   // 8. حفظ السجل الأكاديمي
+  //   // ==========================================
+  //   const regularCourses = allYearEnrollments
+  //     .filter((e: any) => !e.isTraining && e.semester !== SemesterEnum.SUMMER)
+  //     .map((e: any) => {
+  //       const course = e.courseId as any;
+  //       return {
+  //         courseId: course?._id || e.courseId,
+  //         code: course?.code || 'N/A',
+  //         name: course?.name || 'N/A',
+  //         score: e.totalScore ?? 0,
+  //         grade: e.finalGrade ?? 'N/A',
+  //       };
+  //     });
 
-    const summerCourses = allYearEnrollments
-      .filter((e: any) => !e.isTraining && e.semester === SemesterEnum.SUMMER)
-      .map((e: any) => {
-        const course = e.courseId as any;
-        return {
-          courseId: course?._id || e.courseId,
-          code: course?.code || 'N/A',
-          name: course?.name || 'N/A',
-          score: e.totalScore ?? 0,
-          grade: e.finalGrade ?? 'N/A',
-        };
-      });
+  //   const summerCourses = allYearEnrollments
+  //     .filter((e: any) => !e.isTraining && e.semester === SemesterEnum.SUMMER)
+  //     .map((e: any) => {
+  //       const course = e.courseId as any;
+  //       return {
+  //         courseId: course?._id || e.courseId,
+  //         code: course?.code || 'N/A',
+  //         name: course?.name || 'N/A',
+  //         score: e.totalScore ?? 0,
+  //         grade: e.finalGrade ?? 'N/A',
+  //       };
+  //     });
 
-    // ==========================================
-    // 8. حفظ السجل الأكاديمي
-    // ==========================================
-    await this.academicRecordRepository.findOneAndUpdate({
-      // 1. Filter
-      filter: { studentId: studentId, academicYear: academicYear },
+  //   // ==========================================
+  //   // 8. حفظ السجل الأكاديمي
+  //   // ==========================================
+  //   await this.academicRecordRepository.findOneAndUpdate({
+  //     // 1. Filter
+  //     filter: { studentId: studentId, academicYear: academicYear },
 
-      // 2. Update
-      update: {
-        $set: {
-          failedCount: totalFailures,
-          mustRepeatYear: false,
-          yearGpa: parseFloat(yearGpa.toFixed(2)),
-          annualGpa: parseFloat(yearGpa.toFixed(2)),
-          cumulativeGpa: parseFloat(cumulativeGpa.toFixed(2)),
-          hasPenalty: hasAnyPenalty,
-          courses: regularCourses,
-          summerCourses: summerCourses,
-        }
-      },
+  //     // 2. Update
+  //     update: {
+  //       $set: {
+  //         failedCount: totalFailures,
+  //         mustRepeatYear: false,
+  //         yearGpa: parseFloat(yearGpa.toFixed(2)),
+  //         annualGpa: parseFloat(yearGpa.toFixed(2)),
+  //         cumulativeGpa: parseFloat(cumulativeGpa.toFixed(2)),
+  //         hasPenalty: hasAnyPenalty,
+  //         courses: regularCourses,
+  //         summerCourses: summerCourses,
+  //       }
+  //     },
 
-      // 3. Options
-      options: { upsert: true, new: true }
-    });
+  //     // 3. Options
+  //     options: { upsert: true, new: true }
+  //   });
 
-    // ==========================================
-    // 9. الترقية للسنة اللي جاية
-    // ==========================================
-    const currentYearNum = parseInt(academicYear);
-    if (currentYearNum < 4) {
-      await this.userRepository.findOneAndUpdate({
-        // 1. Filter
-        filter: { _id: studentId },
+  //   // ==========================================
+  //   // 9. الترقية للسنة اللي جاية
+  //   // ==========================================
+  //   const currentYearNum = parseInt(academicYear);
+  //   if (currentYearNum < 4) {
+  //     await this.userRepository.findOneAndUpdate({
+  //       // 1. Filter
+  //       filter: { _id: studentId },
 
-        // 2. Update
-        update: {
-          $set: {
-            academicYear: String(currentYearNum + 1),
-            isRepeating: false
-          }
-        }
-      });
-    }
-  }
+  //       // 2. Update
+  //       update: {
+  //         $set: {
+  //           academicYear: String(currentYearNum + 1),
+  //           isRepeating: false
+  //         }
+  //       }
+  //     });
+  //   }
+  // }
 
 
   // ==========================================
