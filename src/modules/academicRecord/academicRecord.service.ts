@@ -207,7 +207,7 @@ export class AcademicRecordService {
       { path: 'clubId', select: 'name' }
     );
     const joinedCommunities = memberships
-      .map((m: any) => m.clubId?.name)
+      .map((m: any) => m.clubId ? { id: m.clubId._id, name: m.clubId.name } : null)
       .filter(Boolean);
 
     // ==========================================
