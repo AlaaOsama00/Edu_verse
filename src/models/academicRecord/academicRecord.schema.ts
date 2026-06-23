@@ -19,6 +19,12 @@ export class CourseRecord {
 
   @Prop({ required: true })
   grade: string; // التقدير (A, B, C, F, etc.)
+
+  @Prop({ required: false })
+  creditHours?: number; // الساعات المعتمدة
+
+  @Prop({ required: false })
+  semester?: SemesterEnum; // الترم الدراسي
 }
 
 // 2. تعريف الـ Schema الأساسية للـ Academic Record

@@ -5,7 +5,7 @@ import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserReposi
 import { AddCourseDto } from '../Enrollment/dto/add-course-dto';
 
 
-    let completedCoursesCount = 0;
+    export let completedCoursesCount = 0;
     let totalCredits = 0;
     let tasks =0;
 
@@ -264,91 +264,32 @@ export class EnrollmentService {
 
 
 
-  async calculateAndUpdateFinalResults(studentId: string, courseId: string) {
-    // 1. جلب السجل الخاص بالطالب في هذه المادة
-    const enrollment = await this.enrollmentRepository.findOne({
-      filter: {
-        studentId: new Types.ObjectId(studentId),
-        courseId: new Types.ObjectId(courseId),
-      }
-    });
-
-    if (!enrollment) return null;
-
-    // 2. جمع الدرجات (Total Score)
-    // نمر على كل القيم الموجودة داخل الـ Object المسمى marks ونجمعها
-    const marksObject = enrollment.marks || {};
-    let totalScore = 0;
-
-    // Object.values بتجيب كل الأرقام اللي جوه marks (ass1, ass2, mid, final)
-    Object.values(marksObject).forEach((mark: number) => {
-      if (typeof mark === 'number') {
-        totalScore += mark;
-      }
-    });
-
-    // 3. حساب التقدير المستحق (Earned Grade)
-    const earnedGrade = calculateGradeLetter(totalScore);
-
-    // 4. حساب التقدير النهائي مع التحقق من المحاولات (Final Grade & Penalty)
-    let finalGrade = earnedGrade;
-    let hasPenalty = false;
-
-    // إذا كانت هذه هي المحاولة الثانية (إعادة المادة)
-    if (enrollment.attemptCount === 2) {
-      finalGrade = applyAttemptPenalty(earnedGrade);
-      hasPenalty = true;
-    }
-
-    // 5. حالة النجاح أو الرسوب (مثلاً النجاح من 60 أو حسب لائحة الكلية)
-    const isPassed = totalScore >= 50 && finalGrade !== 'F';
-
-    // 6. تحديث قاعدة البيانات
-    const updatedEnrollment = await this.enrollmentRepository.findOneAndUpdate({
-      filter: { _id: enrollment._id },
-      update: {
-        $set: {
-          totalScore,
-          earnedGrade,
-          finalGrade,
-          isPassed,
-          hasPenalty, // اختياري لتسجيل أنه تم تطبيق الخصم
-        }
-      },
-      options: { new: true }
-    });
-
-    return updatedEnrollment;
   
+
+
+
+
+
+
+
+  async dropStudentEnrollments(studentId: string) {
+    const studentObjId = new Types.ObjectId(studentId);
+    const result = await this.enrollmentRepository.deleteMany({ filter: { studentId: studentObjId } });
+    return {
+      success: true,
+      message: `Successfully dropped ${result.deletedCount} enrollment records for student ${studentId}.`,
+      deletedCount: result.deletedCount
+    };
   }
 
-
-
-
-
-
-
+  async dropAllEnrollments() {
+    const result = await this.enrollmentRepository.deleteMany({ filter: {} });
+    return {
+      success: true,
+      message: `Successfully dropped all ${result.deletedCount} enrollment records from the collection.`,
+      deletedCount: result.deletedCount
+    };
+  }
 }
 
 
-// دالة لحساب التقدير الأصلي بناءً على المجموع
-function calculateGradeLetter(score: number): string {
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
-  if (score >= 70) return 'C';
-  if (score >= 60) return 'D';
-  return 'F'; // رسوب
-}
-
-// دالة لتقليل التقدير درجة واحدة (Penalty)
-function applyAttemptPenalty(grade: string): string {
-  const gradeScale = ['A', 'B', 'C', 'D', 'F'];
-  const currentIndex = gradeScale.indexOf(grade);
-
-  // لو التقدير مش موجود أو الطالب راسب أصلاً، نرجع F
-  if (currentIndex === -1 || grade === 'F') return 'F';
-
-  // ننزل للتقدير اللي بعده (مثلاً من A لـ B)
-  const nextIndex = Math.min(currentIndex + 1, gradeScale.length - 1);
-  return gradeScale[nextIndex];
-}

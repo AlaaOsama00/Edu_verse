@@ -1,5 +1,5 @@
 import { SemesterEnum, UserRolesEnum } from '@utils/enum';
-import { Controller, Post, Body, Get, Query, Param } from "@nestjs/common";
+import { Controller, Post, Body, Get, Query, Param, Delete } from "@nestjs/common";
 import { CurrentUser } from "@decorators/userDecorator";
 import { Auth } from '@decorators/authDecorator';
 import { AddCourseDto, GetAvailableQueryDto, } from './dto';
@@ -58,6 +58,15 @@ export class EnrollmentController {
     };
   }
 
+  @Delete('student/:studentId')
+  @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يحذف بيانات التسجيل لطالب معين
+  async dropStudentEnrollments(@Param('studentId') studentId: string) {
+    return this.enrollmentService.dropStudentEnrollments(studentId);
+  }
 
-
+  @Delete('drop-all')
+  @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يحذف الكوليكشن بالكامل
+  async dropAllEnrollments() {
+    return this.enrollmentService.dropAllEnrollments();
+  }
 }

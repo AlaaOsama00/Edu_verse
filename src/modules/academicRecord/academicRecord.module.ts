@@ -1,6 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import { AcademicRecord, AcademicRecordSchema } from '@models/academicRecord/academicRecord.schema';
-import { Enrollment, EnrollmentSchema, User, UserSchema, Course, CourseSchema, EnrollmentRepository, UserRepository, CourseRepository, SubmissionRepository, Submission, SubmissionSchema } from '@models/index';
+import { Enrollment, EnrollmentSchema, User, UserSchema, Course, CourseSchema, EnrollmentRepository, UserRepository, CourseRepository, SubmissionRepository, Submission, SubmissionSchema, Club, ClubSchema, ClubMembership, ClubMembershipSchema, ClubMembershipRepository } from '@models/index';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AcademicRecordController } from './academicRecord.controller';
@@ -16,7 +16,9 @@ import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.
       { name: Enrollment.name, schema: EnrollmentSchema },
       { name: User.name, schema: UserSchema },
       { name: Course.name, schema: CourseSchema },
-       { name: Submission.name, schema: SubmissionSchema },
+      { name: Submission.name, schema: SubmissionSchema },
+      { name: Club.name, schema: ClubSchema },
+      { name: ClubMembership.name, schema: ClubMembershipSchema },
     ]),
   ],
   controllers: [AcademicRecordController],
@@ -27,8 +29,9 @@ import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.
     UserRepository,
     CourseRepository,
     JwtService,
-    SubmissionRepository
+    SubmissionRepository,
+    ClubMembershipRepository,
   ],
   exports: [AcademicRecordService, AcademicRecordRepository],
 })
-export class AcademicRecordModule {}
+export class AcademicRecordModule {}
