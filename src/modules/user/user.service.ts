@@ -152,7 +152,8 @@ export class UserService {
         const {
             completedCoursesCount,
             totalCredits,
-            currentEnrolledCourses
+            currentEnrolledCourses,
+            tasks
         } = await this.enrollmentService.getStudentEnrollmentCourses( currentUserId);
 
         // ده الأضمن عشان بيعمل Sort وبيجيب أحدث سنة
@@ -177,6 +178,7 @@ export class UserService {
                 completedCourses: completedCoursesCount,
                 registeredCourses: currentEnrolledCourses.length,
                 totalCredits: totalCredits,
+                tasks: tasks,
             },
             enrolledCourses: currentEnrolledCourses
         };

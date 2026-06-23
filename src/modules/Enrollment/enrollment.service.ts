@@ -7,7 +7,7 @@ import { AddCourseDto } from '../Enrollment/dto/add-course-dto';
 
     let completedCoursesCount = 0;
     let totalCredits = 0;
-    const availableCourseCount = 40-completedCoursesCount;
+    let tasks =0;
 
 @Injectable()
 export class EnrollmentService {
@@ -223,7 +223,12 @@ export class EnrollmentService {
     );
   
     const currentEnrolledCourses: any[] = [];
-
+    const submissionModel = (this.enrollmentRepository['model'] as any).model('Submission');
+    const tasks = await submissionModel.countDocuments({
+      studentId: studentOBJ,
+      submissionStatus: 'submitted',
+      assigmentType: { $in: ['assignment1', 'assignment2'] }
+    });
 
     for (const enrollment of allEnrollments) {
       if (enrollment.isPassed) {
@@ -241,12 +246,18 @@ export class EnrollmentService {
       }
 
     }
-
+    let availableCourseCount = 40-completedCoursesCount;
+    let openRigister=false;
+    if(currentEnrolledCourses.length==0){
+      openRigister=true
+    }
     return {
       completedCoursesCount,
       totalCredits,
       availableCourseCount,
       currentEnrolledCourses,
+      tasks,
+      openRigister
     };
   }
 
