@@ -83,7 +83,7 @@ async getClubMembers(clubId: string) {
     .find({
       clubId: new Types.ObjectId(clubId),
     })
-    .populate('studentId', 'firstName');
+    .populate('studentId', 'fullName');
 
   if (!members.length) {
     return {
