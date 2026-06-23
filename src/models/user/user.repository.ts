@@ -12,7 +12,6 @@ export class UserRepository extends AbstractRepository<User> {
     super(userModel);
   }
   public async findByEmail(email: string)  {
-    // this.findOne بتعمل الـ lean().exec() ورائها في الـ Abstract
     return await this.findOne({ filter: { email } }); 
   }
 

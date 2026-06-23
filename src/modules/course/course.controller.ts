@@ -7,6 +7,7 @@ import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/createCourse.dto';
 import { UpdateCourseDto } from './dto/updateCourse.dto';
 import type{IPagination} from '@decorators/pagination.decorator';
+import { CurrentUser } from '@decorators/userDecorator';
 
 @Controller('courses')
 export class CourseController {
@@ -20,8 +21,8 @@ export class CourseController {
 
   @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   @Get()
-  GetAllCourses(@Pagination() pagination: IPagination, @Query('search') search?: string) {
-    return this.courseService.getAllCourses(pagination, search);
+  GetAllCourses(@CurrentUser('role') userRole: string,@Pagination() pagination: IPagination, @Query('search') search?: string) {
+    return this.courseService.getAllCourses(userRole,pagination, search);
   }
 
   @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR) 

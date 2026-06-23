@@ -62,7 +62,6 @@ export class EnrollmentService {
     };
   }
 
-
   // ==========================================
   // تسجيل كافة مواد الخطة وتأكيدها دفعة واحدة
   // ==========================================
@@ -200,37 +199,9 @@ export class EnrollmentService {
     };
   }
 
-  /*
-  هيجسي الماركس بتع كل ماده من  ال enrollment 
-  */
-  async getMyCurrentGrades(studentId: string, semester: string) {
-    const studentObjId = new Types.ObjectId(studentId);
-    const user = await this.userRepository.findById(studentObjId);
-    if (!user)
-      throw new NotFoundException();
-    const enrollments = await this.enrollmentRepository.find({
-      studentId: studentObjId,
-      semester: semester // اللي هي مبعوتة من البوست مان 'FALL'
-    });
 
-    // 2. لو الطالب مش مسجل أي مواد في الترم ده
-    if (!enrollments || enrollments.length === 0) {
-      return [];
-    }
 
-    // 3. ترتيب وتصفية الداتا عشان نرجع شكل نظيف للـ Frontend
-    const gradesReport = enrollments.map(enrollment => {
-      return {
-        courseId: enrollment.courseId,
-        // لو الداتابيز عندك بتعمل Populate (Join) تقدر ترجع اسم الكورس كمان هنا
-        // courseName: enrollment.courseId.name, 
-        marks: enrollment.marks || {}, // بنرجع الـ Object بتاع الدرجات كامل
-      };
-    });
-
-    return gradesReport;
-  }
-
+  
   //المواد بتاعته 
   async getStudentEnrollmentCourses(currentUser: string) {
 

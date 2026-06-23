@@ -5,17 +5,20 @@ import { SemesterEnum } from '@utils/enum';
 // 1. تعريف الـ Sub-schema الخاص بتفاصيل كل مادة
 @Schema({ _id: false }) // مش محتاجين id لكل مادة لوحدها
 export class CourseRecord {
-  @Prop({ required: true })
-  subjectName: string; // اسم المادة
-
-  @Prop({ required: true, min: 0, max: 100 })
-  percentage: number; // جايب كام في المية
+  @Prop({ type: Types.ObjectId, ref: 'Course', required: true })
+  courseId: Types.ObjectId;
 
   @Prop({ required: true })
-  grade: string; // الجريد (A, B, C, F, etc.)
+  code: string; // كود المادة
 
-  @Prop({ type: String, enum: SemesterEnum, required: true })
-  semester: SemesterEnum; // FALL / SPRING
+  @Prop({ required: true })
+  name: string; // اسم المادة
+
+  @Prop({ required: true })
+  score: number; // السكور اللى جابه
+
+  @Prop({ required: true })
+  grade: string; // التقدير (A, B, C, F, etc.)
 }
 
 // 2. تعريف الـ Schema الأساسية للـ Academic Record
@@ -23,40 +26,29 @@ export class CourseRecord {
 export class AcademicRecord extends Document {
 
   // الربط ببيانات الطالب
-  @Prop({ type: Types.ObjectId, ref: 'Student', required: true, index: true })
-  student: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  studentId: Types.ObjectId;
 
   @Prop({ required: true })
   academicYear: string;
 
-  // المعدلات
-  @Prop({ required: true })
-  annualGpa: number; // الـ GPA السنوي
+
+  @Prop({ required: false })
+  yearGpa?: number; // المعدل السنوي
 
   @Prop({ required: true })
   cumulativeGpa: number; // المعدل التراكمي الكلي
-
-  // الحالة الأكاديمية (هينقل، هيعيد، ولا سمر)
-  @Prop({
-    type: String,
-    enum: ['PROMOTED', 'REPEATING', 'SUMMER_COURSES', 'PENDING'],
-    default: 'PENDING',
-  })
-  academicStatus: string;
 
   // مصفوفة المواد العادية
   @Prop({ type: [CourseRecord], default: [] })
   courses: CourseRecord[];
 
-  // مصفوفة مواد السمر
-  @Prop({ type: [CourseRecord], default: [] })
-  summerCourses: CourseRecord[];
 }
 
 export const AcademicRecordSchema = SchemaFactory.createForClass(AcademicRecord);
 
 // سجل واحد بس لكل طالب في كل سنة دراسية
 AcademicRecordSchema.index(
-  { student: 1, academicYear: 1 },
+  { studentId: 1, academicYear: 1 },
   { unique: true },
 );

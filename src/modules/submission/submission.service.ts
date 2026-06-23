@@ -2,10 +2,9 @@ import { AssessmentRepository, EnrollmentRepository, UserRepository, SubmissionR
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { AssessmentTypeEnum, GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
-import { BulkGradeDto } from './dto/bulk-grade.dto';
-import { EditGradeDto } from './dto/edit-grade.dto';
+import { BulkGradeDto } from '../grades/dtos/bulk-grade.dto';
+import { EditGradeDto } from '../grades/dtos/edit-grade.dto';
 import { AcademicRecordService } from '../academicRecord/academicRecord.service';
-import { EnrollmentService } from '../Enrollment/enrollment.service';
 
 
 @Injectable()
@@ -16,7 +15,6 @@ export class SubmissionService {
     private readonly enrollmentRepo: EnrollmentRepository,
     private readonly academicRecordService: AcademicRecordService,
     private readonly userRepository: UserRepository,
-    private readonly enrollmentService:EnrollmentService
   ) { }
 
 
@@ -51,12 +49,14 @@ export class SubmissionService {
       },
       update: {
         $set: {
+          assigmentType:assessment.type,
           submissionFileUrl,
           submissionStatus: SubmissionStatusEnum.SUBMITTED,
           submittedAt: new Date(),
           gradeStatus: GradeStatusEnum.GRADED,
           mark: 10,
           gradedByProf: assessment.createdBy._id
+        
         },
       },
       options: { new: true, upsert: true } // upsert: true تعني لو السجل مش موجود، اعمله جديد
@@ -99,10 +99,10 @@ export class SubmissionService {
   // 1. عرض الـ Gradebook للدكتور
   // ==========================================
   async getGradebook(courseId: string) {
+
     const courseIdObj = new Types.ObjectId(courseId);
 
     // أ: جيب الأعمدة (التقييمات)
-    const assessments = await this.assessmentRepo.find({ courseId: courseIdObj });
 
     // ب: جيب الصفوف (الطلاب) باستخدام Aggregate
     const enrollments = await this.enrollmentRepo.aggregate([
@@ -118,93 +118,9 @@ export class SubmissionService {
       { $unwind: { path: '$studentData', preserveNullAndEmptyArrays: true } }
     ]);
 
-    // ج: جيب كل الدرجات الحقيقية اللي في الداتا
-    const grades = await this.submissionRepository.find({ courseId: courseIdObj });
 
-    // د: بناء المصفوفة والمنطق
-    const studentRows = enrollments.map((enrollment: any) => {
-      const student = enrollment.studentData;
-      const studentName = student.fullName;
-      const academicId = student.academicId;
+  
 
-      const assessmentsData = assessments.map((assess: any) => {
-        // دور على الدرجة الحقيقية لو موجودة
-        const grade = grades.find(
-          (g) => g.studentId?.toString() === enrollment.studentId?.toString() &&
-            g.assessmentId?.toString() === assess._id?.toString()
-        );
-
-        const now = new Date();
-        // متغير بيحدد هل الميعاد خلص ولا لسه
-        const isDeadlinePassed = assess.deadline && new Date(assess.deadline) <= now;
-
-        let currentSubmissionStatus;
-        let currentGradeStatus;
-        let displayMarks;
-
-        if (grade) {
-          // ==========================================
-          // الحالة الأولى: في سجل حقيقي في الداتا (الطالب سلم أو الدكتور دخل درجة)
-          // ==========================================
-          currentSubmissionStatus = grade.submissionStatus;
-
-          if (isDeadlinePassed && grade.submissionStatus === SubmissionStatusEnum.SUBMITTED) {
-            // سلم والميعاد خلص -> ياخد الماكس سكور أوتوماتيك على الشاشة
-            currentGradeStatus = GradeStatusEnum.GRADED;
-            displayMarks = assess.maxMark;
-          } else {
-            // غير كده -> نعرض اللي في الداتا زي ما هو
-            currentGradeStatus = grade.gradeStatus;
-            displayMarks = grade.mark;
-          }
-
-        } else {
-          // ==========================================
-          // الحالة التانية: مفيش سجل خالص في الداتا (معناها مش سلم)
-          // ==========================================
-          if (isDeadlinePassed) {
-            // ميعاد خلص وهو مش سلم -> MISSING و 0
-            currentSubmissionStatus = SubmissionStatusEnum.MISSING;
-            currentGradeStatus = GradeStatusEnum.GRADED;
-            displayMarks = 0;
-          } else {
-            // لسه وقت -> NOT_SUBMITTED و null
-            currentSubmissionStatus = SubmissionStatusEnum.NOT_SUBMITTED;
-            currentGradeStatus = GradeStatusEnum.PENDING;
-            displayMarks = null;
-          }
-        }
-
-        return {
-          gradeId: grade?._id || null,
-          assessmentId: assess._id,
-          assessmentName: assess.name,
-          maxMark: assess.maxMark,
-          marks: displayMarks,
-          submissionStatus: currentSubmissionStatus,
-          gradeStatus: currentGradeStatus,
-        };
-      });
-
-      return {
-        enrollmentId: enrollment._id,
-        studentId: enrollment.studentId,
-        studentName: studentName,
-        academicId: academicId,
-        assessments: assessmentsData,
-      };
-    });
-
-    return {
-      columns: assessments.map(a => ({
-        _id: a._id,
-        type: a.type,
-        name: a.name,
-        deadline: a.deadline
-      })),
-      rows: studentRows,
-
-    };
   }
   // ==========================================
   // 2. تعديل درجة طالب واحد
@@ -330,9 +246,8 @@ export class SubmissionService {
     }
     return { message: `Grades updated successfully for ${assessmentType}.` };
   }
-  // ==========================================
-  // 4. واجهة الطالب: درجاتي في الترم الحالي
-  // ==========================================
 
 }
+
+
 }

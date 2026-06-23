@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
-import { GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
+import { AssessmentTypeEnum, GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
 
 
 // ====== حالة التصحيح ======
@@ -33,6 +33,9 @@ export class Submission {
   @Prop({ type: Date, default: null })
   submittedAt: Date;
 
+  
+  @Prop({ type: String, enum: AssessmentTypeEnum ,required:true })
+  assigmentType: AssessmentTypeEnum;
 
   // ====== بيانات التصحيح ======
   @Prop({ type: Number, min: 0, default: null })

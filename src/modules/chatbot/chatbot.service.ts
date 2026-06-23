@@ -22,7 +22,7 @@ export class ChatbotService {
 
     this.api = axios.create({
       baseURL: baseUrl, // مثال: https://web-production-faf88.up.railway.app
-      timeout: 30000,   // 30 ثانية — الـ AI ممكن ياخد وقت في التوليد
+      timeout: 40000,   // 30 ثانية — الـ AI ممكن ياخد وقت في التوليد
     });
   }
 

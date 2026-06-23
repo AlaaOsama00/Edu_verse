@@ -6,7 +6,7 @@ import {
     UnauthorizedException,
     ConflictException,
 } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { ObjectId, Types } from 'mongoose';
 import { CreateClubDto } from '../Dto/club/create-club-dto';
 import { UserRolesEnum } from '@utils/enum';
 import { UpdateClubDto } from '../Dto/club/update-club-dto';
@@ -73,12 +73,21 @@ export class ClubService {
         return clubResponse;
     }
 
-    async getDashboardStats(userRole: UserRolesEnum) {
+    async getDashboardStats(userRole: UserRolesEnum,userId:ObjectId) {
         // 1. حساب إجمالي عدد المجتمعات
         const totalCommunities = await this.clubRepo.count();
         const allCommunities = await this.clubRepo.find({});
-        if (userRole == UserRolesEnum.STUDENT)
-            return allCommunities;
+        if (userRole == UserRolesEnum.STUDENT) {
+            const memberships = await this.membershipRepo.find({ studentId: userId });
+            const memberClubIds = new Set(memberships.map(m => m.clubId.toString()));
+            return allCommunities.map((club: any) => {
+                const clubObj = club.toObject ? club.toObject() : club;
+                return {
+                    ...clubObj,
+                    isMember: memberClubIds.has(clubObj._id.toString())
+                };
+            });
+        }
 
         const membersAggregation = await this.clubRepo.aggregate([
             { $group: { _id: null, totalMembers: { $sum: '$membersCount' } } }

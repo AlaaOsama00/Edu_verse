@@ -142,7 +142,6 @@ export class AssessmentService {
     // 1. نجيب مواد الطالب من الريبو (كما هي)
     const enrollments = await this.enrollmentRepo.find({
       studentId: new Types.ObjectId(studentId),
-      enrollmentStatus: 'active'
 
     });
     const courseIds = enrollments.map(e => e.courseId);

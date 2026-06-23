@@ -4,11 +4,13 @@ import { Auth } from '@decorators/authDecorator';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
 import { UpdateUserDto } from './dto/updateUserDto';
-import { CurrentUser } from '@decorators/userDecorator';
 
 @Controller('users')
 export class UserController {
     constructor(private readonly userService: UserService) { }
+
+
+    
     @Post('create-account')
     async createUser(@Body() createUserDto: CreateUserDto) {
         return this.userService.createUser(createUserDto);
@@ -58,7 +60,7 @@ export class UserController {
     }
 
     @Get('search-professors')
-   //! @Auth(UserRolesEnum.ADMIN,UserRolesEnum.PROFESSOR,UserRolesEnum)
+    @Auth(UserRolesEnum.ADMIN,UserRolesEnum.PROFESSOR,UserRolesEnum.STUDENT)
     async searchProfessors(@Query('q') query: string, @Query('status') status?: ActivationEnum | 'ALL') {
         // هنا الدالة هتبحث في الاسم والإيميل بس
         const results = await this.userService.searchUsers(query, UserRolesEnum.PROFESSOR, status);

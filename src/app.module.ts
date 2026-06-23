@@ -14,6 +14,7 @@ import { CloudinaryModule } from './common/multer/cloudinary.module';
 import { CommunityModule } from './modules/community/community.module';
 import { SubmissionModule } from './modules/submission/submission.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module ';
+import { GradeModule } from './modules/grades/grade.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module ';
     CloudinaryModule,
     CommunityModule,
     ChatbotModule,
+    GradeModule,
 
   ],
   controllers: [AppController],

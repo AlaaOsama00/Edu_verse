@@ -50,7 +50,8 @@ export class CommunityController {
   @Auth(UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   async getStats(@Req() req: any) {
     const role = req.user.role;
-    const stats = await this.clubService.getDashboardStats(role);
+    const userId= req.user._id;
+    const stats = await this.clubService.getDashboardStats(role,userId);
     return {
       data: stats,
     };

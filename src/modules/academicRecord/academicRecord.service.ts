@@ -31,7 +31,7 @@ export class AcademicRecordService {
     const studentObjId = new Types.ObjectId(studentId);
 
     // فلترة على مستوى الـ Record نفسه لو اليوزر حدد سنة معينة
-    const filter: any = { student: studentObjId };
+    const filter: any = { studentId: studentObjId };
     if (academicYear) {
       filter.academicYear = academicYear;
     }
@@ -45,19 +45,18 @@ export class AcademicRecordService {
     // بنعمل flatten لكل المواد (العادية + السمر) في array واحدة مسطحة
     // وبنضيف academicYear و isSummer لكل مادة عشان الـ Frontend يعرف مصدرها
     const allCourses = records.flatMap((record) => {
-      const regularCourses = record.courses.map((course) => ({
-        ...course,
-        academicYear: record.academicYear,
-        isSummer: false,
-      }));
+      const regularCourses = (record.courses || []).map((course: any) => {
+        const c = course.toObject ? course.toObject() : course;
+        return {
+          ...c,
+          academicYear: record.academicYear,
+          isSummer: false,
+        };
+      });
 
-      const summerCourses = record.summerCourses.map((course) => ({
-        ...course,
-        academicYear: record.academicYear,
-        isSummer: true,
-      }));
+     
 
-      return [...regularCourses, ...summerCourses];
+      return [...regularCourses];
     });
 
     // فلترة بالترم — بعد الـ flatten، لأن الترم موجود جوه كل مادة مش جوه الـ Record
@@ -79,7 +78,7 @@ export class AcademicRecordService {
     const studentObjId = new Types.ObjectId(studentId);
 
     const records = await this.academicRecordRepository.find({
-      student: studentObjId,
+      studentId: studentObjId,
     });
 
     if (records.length === 0) {
@@ -93,9 +92,7 @@ export class AcademicRecordService {
 
     return sortedRecords.map((record) => ({
       academicYear: record.academicYear,
-      annualGpa: record.annualGpa,
       cumulativeGpa: record.cumulativeGpa,
-      academicStatus: record.academicStatus,
     }));
   }
 
@@ -112,12 +109,15 @@ export class AcademicRecordService {
   async evaluateStudentProgress(studentId: Types.ObjectId, academicYear: string, currentSemester: SemesterEnum) {
 
     // 1. جيب كل مواد الطالب في السنة دي (فال، سبرينج، صيف)
-    const allYearEnrollments = await this.enrollmentRepo.find({
-      filter: {
+    const allYearEnrollments = await this.enrollmentRepo.find(
+      {
         studentId: studentId,
         academicYear: academicYear,
-      }
-    });
+      },
+      {},
+      {},
+      { path: 'courseId' }
+    );
 
     if (allYearEnrollments.length === 0) return;
 
@@ -245,13 +245,42 @@ export class AcademicRecordService {
 
     let prevTotalPoints = 0, prevTotalHours = 0;
     previousRecords.forEach(r => {
-      prevTotalPoints += (r.annualGpa ?? 0 * 15);
+    //  prevTotalPoints += (r.annualGpa ?? 0 * 15);
       prevTotalHours += 15;
     });
 
     const cumulativeGpa = (totalCreditHours + prevTotalHours) > 0
       ? ((totalQualityPoints + prevTotalPoints) / (totalCreditHours + prevTotalHours))
       : yearGpa;
+
+    // ==========================================
+    // 8. حفظ السجل الأكاديمي
+    // ==========================================
+    const regularCourses = allYearEnrollments
+      .filter((e: any) => !e.isTraining && e.semester !== SemesterEnum.SUMMER)
+      .map((e: any) => {
+        const course = e.courseId as any;
+        return {
+          courseId: course?._id || e.courseId,
+          code: course?.code || 'N/A',
+          name: course?.name || 'N/A',
+          score: e.totalScore ?? 0,
+          grade: e.finalGrade ?? 'N/A',
+        };
+      });
+
+    const summerCourses = allYearEnrollments
+      .filter((e: any) => !e.isTraining && e.semester === SemesterEnum.SUMMER)
+      .map((e: any) => {
+        const course = e.courseId as any;
+        return {
+          courseId: course?._id || e.courseId,
+          code: course?.code || 'N/A',
+          name: course?.name || 'N/A',
+          score: e.totalScore ?? 0,
+          grade: e.finalGrade ?? 'N/A',
+        };
+      });
 
     // ==========================================
     // 8. حفظ السجل الأكاديمي
@@ -266,8 +295,11 @@ export class AcademicRecordService {
           failedCount: totalFailures,
           mustRepeatYear: false,
           yearGpa: parseFloat(yearGpa.toFixed(2)),
+          annualGpa: parseFloat(yearGpa.toFixed(2)),
           cumulativeGpa: parseFloat(cumulativeGpa.toFixed(2)),
-          hasPenalty: hasAnyPenalty
+          hasPenalty: hasAnyPenalty,
+          courses: regularCourses,
+          summerCourses: summerCourses,
         }
       },
 
@@ -310,10 +342,11 @@ export class AcademicRecordService {
 
     if (!student) throw new BadRequestException('Student not found');
 
-    const academicRecords = await this.academicRecordRepository.find({
-      filter: { studentId: studentObjId },
-      options: { sort: { academicYear: 1 } }
-    });
+    const academicRecords = await this.academicRecordRepository.find(
+      { studentId: studentObjId },
+      {},
+      { sort: { academicYear: 1 } }
+    );
     // 3. جلب كل التسجيلات (الـ Enrollments) اللي تمت的历史
     // بنستخدم Aggregate عشان نجيب بيانات الكورس (الاسم والكود)
     const enrollments = await this.enrollmentRepo.aggregate([
@@ -382,7 +415,7 @@ export class AcademicRecordService {
 
       return {
         academicYear: record.academicYear,
-        yearGpa: record.annualGpa,
+        //yearGpa: record.annualGpa,
         cumulativeGpa: record.cumulativeGpa,
         // هنا نربط التيرمات اللي عملناها في الـ Map
         semesters: historyMap.get(record.academicYear)?.semesters || {}
@@ -460,11 +493,9 @@ export class AcademicRecordService {
     // 3. التدريب الصيفي (Applied Training)
     // ==========================================
     const trainingEnrollments = await this.enrollmentRepo.find({
-      filter: {
-        studentId: studentObjId,
-        isTraining: true,
-        isTrainingApproved: true
-      }
+      studentId: studentObjId,
+      isTraining: true,
+      isTrainingApproved: true
     });
     const appliedTraining = trainingEnrollments.length;
 

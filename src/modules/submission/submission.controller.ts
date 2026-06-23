@@ -1,8 +1,8 @@
-import { Controller, Post, Body, Param, Get, Patch, Query } from '@nestjs/common';
+import { Controller, Post, Body, Param, Get, Patch} from '@nestjs/common';
 import { Auth } from '@decorators/authDecorator';
 import { UserRolesEnum } from '@utils/enum';
-import { EditGradeDto } from './dto/edit-grade.dto';
-import { BulkGradeDto } from './dto/bulk-grade.dto';
+import { EditGradeDto } from '../grades/dtos/edit-grade.dto';
+import { BulkGradeDto } from '../grades/dtos/bulk-grade.dto';
 import { CurrentUser } from '@decorators/userDecorator';
 import { SubmissionService } from './submission.service';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
@@ -31,17 +31,7 @@ export class SubmissionController {
 
 
 
-    // ==========================================
-    // 1. عرض الـ Gradebook للدكتور
-    // ==========================================
-    @Get('gradebook/:courseId')
-    @Auth(UserRolesEnum.PROFESSOR, UserRolesEnum.ADMIN)
-    async getGradebook(@Param('courseId') courseId: string) {
-        // الواجهة هتبعت: GET /grades/gradebook/6621d9f8a1b2c3d4e5f67890
-        return this.submissionService.getGradebook(courseId);
-    }
-
-    // ==========================================
+   // ==========================================
     // 2. تعديل درجة طالب واحد
     // ==========================================
     @Patch(':gradeId')

@@ -58,13 +58,6 @@ export class EnrollmentController {
     };
   }
 
-   @Get('my-grades')
-    @Auth(UserRolesEnum.STUDENT,UserRolesEnum.ADMIN) // مهم: بس الطلاب يقدروا يوصلوا هنا
-    async getMyGrades(
-        @CurrentUser('_id') studentId: string,
-        @Query('semester') semester: string,
-    ) {
-        return this.enrollmentService.getMyCurrentGrades(studentId, semester );
-    }
+
 
 }

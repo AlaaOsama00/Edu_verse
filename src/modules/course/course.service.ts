@@ -72,23 +72,95 @@ export class CourseService {
     };
   }
 
-  async getAllCourses(pagination: IPagination, search?: string) {
+async getAllCourses(userRole,pagination: IPagination, search?: string) {
     const { skip, limit } = pagination;
 
     const filter: any = {};
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
         { code: { $regex: search, $options: 'i' } },
       ];
     }
 
-    // جلب الداتا والعدد الإجمالي في نفس الوقت
-    const [data, total] = await Promise.all([
+    // 1. جلب الداتا والعدد الإجمالي للكورسات
+    const [courses, total] = await Promise.all([
       this.courseRepo.findAllWithPagination(skip, limit, filter),
       this.courseRepo.countTotal(filter),
     ]);
 
+    if (!courses || courses.length === 0) {
+      return {
+        data: [],
+        meta: {
+          total,
+          page: pagination.page,
+          limit: pagination.limit,
+          totalPages: Math.ceil(total / pagination.limit),
+        }
+      };
+    }
+
+    
+    // --- 2. جلب بيانات الـ Study Plan ---
+    const courseIds = courses.map((course: any) => course._id);
+
+    const studyPlans = await this.studyPlanRepository.find({
+      'courses.courseId': { $in: courseIds }
+    });
+
+    // --- 3. تجميع IDs الدكاترة بدون تكرار ---
+    const professorIdsSet = new Set<string>();
+    const planMap = new Map();
+
+    studyPlans.forEach((plan: any) => {
+      plan.courses.forEach((c: any) => {
+        // بنخزن داتا الـ Study Plan
+        planMap.set(c.courseId.toString(), {
+          semester: plan.semester,
+          academicYear: plan.academicYear,
+          professorId: c.professorId
+        });
+
+        // بنجمع الـ IDs بتاعت الدكاترة
+        if (c.professorId) {
+          professorIdsSet.add(c.professorId.toString());
+        }
+      });
+    });
+
+    // --- 4. جلب أسماء الدكاترة من قاعدة البيانات ---
+    const professorIdsArray = Array.from(professorIdsSet);
+    
+    // (تأكدي إن الـ userRepository موجود في الـ constructor)
+    const professors = await this.userRepository.find({
+      _id: { $in: professorIdsArray.map(id => new Types.ObjectId(id)) }
+    });
+
+    // نعمل قاموس (Map) لأسماء الدكاترة عشان نوصلها بسرعة
+    const professorsMap = new Map();
+    professors.forEach((prof: any) => {
+      professorsMap.set(prof._id.toString(), prof.fullName); // ⚠️ غيري fullName لـ firstName لو اسم الحقل عندك كده
+    });
+
+    // --- 5. دمج الكورسات مع الداتا بتاعة الـ Study Plan واسم الدكتور ---
+    const data = courses.map((course: any) => {
+      const courseObj = course.toObject ? course.toObject() : JSON.parse(JSON.stringify(course));
+      
+      const extraData = planMap.get(courseObj._id.toString()) || {};
+      
+      // بنجيب اسم الدكتور باستخدام الـ ID بتاعه
+      const profIdString = extraData.professorId ? extraData.professorId.toString() : null;
+      const professorName = profIdString ? professorsMap.get(profIdString) : null;
+
+      return {
+        ...courseObj,
+        semester: extraData.semester || null,
+        academicYear: extraData.academicYear || null,
+        professorName: professorName || 'Unknown Professor', // 👈 رجعنا الاسم بدل الـ ID
+      };
+    });
+
+    // 6. إرجاع النتيجة النهائية
     return {
       data,
       meta: {

@@ -57,7 +57,7 @@ export class ChatbotController {
 
     // GET /chatbot/chat/history/:sessionId
     @Get('chat/history/:sessionId')
-    async getChatHistory(@Param('sessionId') sessionId: string) {
+    async   (@Param('sessionId') sessionId: string) {
         return this.chatbotService.getChatHistory(sessionId);
     }
 
@@ -68,7 +68,7 @@ export class ChatbotController {
     }
 
     // POST /chatbot/summarize
-    @Post('summarize')
+    @Post('summarize/:sessionId')
     async summarize(@Body() dto: SummarizeDto) {
         return this.chatbotService.summarize(dto);
     }
