@@ -169,10 +169,15 @@ export class GradeService {
     const user = await this.userRepo.findById(studentObjId);
     if (!user)
       throw new NotFoundException();
-    const enrollments = await this.enrollmentRepo.find({
-      studentId: studentObjId,
-      semester: semester // اللي هي مبعوتة من البوست مان 'FALL'
-    });
+    const enrollments = await this.enrollmentRepo.find(
+      {
+        studentId: studentObjId,
+        semester: semester // اللي هي مبعوتة من البوست مان 'FALL'
+      },
+      {},
+      {},
+      { path: 'courseId', select: 'name' }
+    );
 
     // 2. لو الطالب مش مسجل أي مواد في الترم ده
     if (!enrollments || enrollments.length === 0) {
@@ -181,10 +186,10 @@ export class GradeService {
 
     // 3. ترتيب وتصفية الداتا عشان نرجع شكل نظيف للـ Frontend
     const gradesReport = enrollments.map(enrollment => {
+      const course = enrollment.courseId as any;
       return {
-        courseId: enrollment.courseId,
-        // لو الداتابيز عندك بتعمل Populate (Join) تقدر ترجع اسم الكورس كمان هنا
-        // courseName: enrollment.courseId.name, 
+        courseId: course ? course._id : enrollment.courseId,
+        courseName: course ? course.name : null, 
         marks: enrollment.marks || {}, // بنرجع الـ Object بتاع الدرجات كامل
       };
     });
