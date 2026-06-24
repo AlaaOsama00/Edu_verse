@@ -44,12 +44,15 @@ export class AcademicRecordController {
 
   @Post('evaluate/:studentId')
   @Auth(UserRolesEnum.ADMIN) // الدكتور أو الأدمن يقدر يعمل تقييم
-  async evaluateStudentStatus(@Param('studentId') studentId: string) {
-    return this.academicRecordService.evaluateStudentStatus(studentId);
+  async evaluateStudentStatus(
+    @Param('studentId') studentId: string,
+    @Query('semester') semester?: SemesterEnum,
+  ) {
+    return this.academicRecordService.evaluateStudentStatus(studentId, semester);
   }
 
   @Post('evaluate-all')
-  @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يعمل تقييم لكل الطلاب دفعة واحدة
+  @Auth(UserRolesEnum.PROFESSOR) // فقط الأدمن يقدر يعمل تقييم لكل الطلاب دفعة واحدة
   async evaluateAllStudentsStatus() {
     return this.academicRecordService.evaluateAllStudents();
   }

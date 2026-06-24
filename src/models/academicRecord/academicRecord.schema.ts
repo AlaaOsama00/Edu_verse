@@ -38,6 +38,8 @@ export class AcademicRecord extends Document {
   @Prop({ required: true })
   academicYear: string;
 
+  @Prop({ required: true, enum: SemesterEnum })
+  semester: SemesterEnum;
 
   @Prop({ required: false })
   yearGpa?: number; // المعدل السنوي
@@ -53,8 +55,8 @@ export class AcademicRecord extends Document {
 
 export const AcademicRecordSchema = SchemaFactory.createForClass(AcademicRecord);
 
-// سجل واحد بس لكل طالب في كل سنة دراسية
+// سجل واحد بس لكل طالب في كل سنة دراسية وتيرم
 AcademicRecordSchema.index(
-  { studentId: 1, academicYear: 1 },
+  { studentId: 1, academicYear: 1, semester: 1 },
   { unique: true },
 );

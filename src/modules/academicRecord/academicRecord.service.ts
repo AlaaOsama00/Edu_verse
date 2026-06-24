@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { GradeEnum, GradeStatusEnum, SemesterEnum, SummerReasonEnum, AcademicYearEnum, UserRolesEnum } from '@utils/enum';
+import { GradeStatusEnum, SemesterEnum, SummerReasonEnum, AcademicYearEnum, UserRolesEnum } from '@utils/enum';
 import { EnrollmentRepository, UserRepository, AcademicRecordRepository, SubmissionRepository, CourseRepository, CourseRecord, ClubMembershipRepository } from '@models/index';
 import { Types } from 'mongoose';
 import { gradeToPoints } from '@utils/helpers';
-import { completedCoursesCount } from '../Enrollment/enrollment.service';
 
 
 @Injectable()
@@ -57,7 +56,7 @@ export class AcademicRecordService {
         };
       });
 
-     
+
 
       return [...regularCourses];
     });
@@ -85,7 +84,7 @@ export class AcademicRecordService {
     });
 
     if (records.length == 0) {
-      throw new NotFoundException('Not found');
+      return '0';
     }
 
     // بنرتب بالسنة عشان تطلع منظمة (سنة 1 الأول، بعدين 2، ...)
@@ -210,24 +209,58 @@ export class AcademicRecordService {
       .map((m: any) => m.clubId ? { id: m.clubId._id, name: m.clubId.name } : null)
       .filter(Boolean);
 
+    // 1. Get completed courses from past Academic Records
+    const academicRecords = await this.academicRecordRepository.find({
+      studentId: studentObjId
+    });
+    const recordedSemesters = new Set<string>();
+    let completedFromAcademicRecords = 0;
+    for (const record of academicRecords) {
+      if (record.courses) {
+        for (const course of record.courses) {
+          if (course.grade && course.grade !== 'F') {
+            completedFromAcademicRecords++;
+          }
+          if (course.semester) {
+            recordedSemesters.add(`${record.academicYear}_${course.semester}`);
+          }
+        }
+      }
+    }
+
+    // 2. Get completed courses from current Enrollments (skipping already recorded semesters)
+    const completedCurrentEnrollments = await this.enrollmentRepo.find({
+      studentId: studentObjId,
+      isPassed: true
+    });
+    let completedCurrentCount = 0;
+    for (const enrollment of completedCurrentEnrollments) {
+      const key = `${enrollment.academicYear}_${enrollment.semester}`;
+      if (!recordedSemesters.has(key)) {
+        completedCurrentCount++;
+      }
+    }
+
+    const completedCoursesCount = completedFromAcademicRecords + completedCurrentCount;
+
     // ==========================================
     // الـ Response النهائي
     // ==========================================
     return {
       currentGPA: parseFloat(currentGPA.toFixed(2)), // 1.78
-      completedCourses:completedCoursesCount,
+      completedCourses: completedCoursesCount,
       tasks: {
         total: totalTasks,          // 40
         completed: completedTasks   // 5
       },
       appliedTraining, // 1
       topCoursesGrades,       // Array فيها الاسم والنسبة
-      GPAHistory:GPAHistory,
-      joinedCommunities:joinedCommunities
+      GPAHistory: GPAHistory,
+      joinedCommunities: joinedCommunities
     };
   }
 
-  async evaluateStudentStatus(studentId: string) {
+  async evaluateStudentStatus(studentId: string, semester?: SemesterEnum) {
     const studentObjId = new Types.ObjectId(studentId);
 
     // 1. Fetch the student profile
@@ -239,108 +272,147 @@ export class AcademicRecordService {
     const currentYear = student.currentYear; // e.g. '1', '2', '3', '4'
 
     // 2. Fetch all enrollments for this student for their current academicYear
-    const enrollments = await this.enrollmentRepo.find(
+    const allYearEnrollments = await this.enrollmentRepo.find(
       { studentId: studentObjId, academicYear: currentYear },
       {},
       {},
       { path: 'courseId' } // Populate course details
     );
 
-    if (enrollments.length == 0) {
+    if (allYearEnrollments.length == 0) {
       throw new BadRequestException(`No enrollments found for student in academic year ${currentYear}`);
     }
 
-    // 3. Assert all courses have been graded (excluding training if not graded yet)
-    const ungradedCourses = enrollments.filter(e => !e.isTraining && (e.totalScore === null || e.totalScore === undefined || e.finalGrade === null));
-    if (ungradedCourses.length > 0) {
-      const courseNames = ungradedCourses.map(e => (e.courseId as any)?.name || 'Unknown').join(', ');
-      throw new BadRequestException(
-        `Cannot evaluate student. The following courses do not have grades yet: ${courseNames}`
-      );
-    }
+    // Determine which semesters to evaluate
+    const semestersToEvaluate = semester 
+      ? [semester] 
+      : Array.from(new Set(allYearEnrollments.map(e => e.semester as SemesterEnum)));
 
-    // 4. Determine if student failed at least one course
-    const failedCourses = enrollments.filter(e => !e.isPassed && !e.isTraining);
-    const hasFailedAny = failedCourses.length > 0;
+    const evaluationResults: any[] = [];
 
-    // 5. Calculate GPA for the current year
-    let yearQualityPoints = 0;
-    let yearCreditHours = 0;
+    for (const sem of semestersToEvaluate) {
+      const enrollments = allYearEnrollments.filter(e => e.semester === sem);
+      if (enrollments.length === 0) {
+        if (semester) {
+          throw new BadRequestException(`No enrollments found for student in semester ${sem}`);
+        }
+        continue;
+      }
 
-    const courseRecordsForAcademicRecord: CourseRecord[] = [];
+      // Assert all courses in this semester have been graded (excluding training if not graded yet)
+      const ungradedCourses = enrollments.filter(e => !e.isTraining && (e.totalScore === null || e.totalScore === undefined || e.finalGrade === null));
+      if (ungradedCourses.length > 0) {
+        if (semester) {
+          const courseNames = ungradedCourses.map(e => (e.courseId as any)?.name || 'Unknown').join(', ');
+          throw new BadRequestException(
+            `Cannot evaluate student for semester ${sem}. The following courses do not have grades yet: ${courseNames}`
+          );
+        }
+        // If not explicitly requested, just skip this semester silently
+        continue;
+      }
 
-    for (const e of enrollments) {
-      const course = e.courseId as any;
-      const creditHours = e.creditHours || course?.creditHours || 0;
+      // 4. Determine if student failed at least one course in this semester
+      const failedCourses = enrollments.filter(e => !e.isPassed && !e.isTraining);
+      const hasFailedAny = failedCourses.length > 0;
 
-      courseRecordsForAcademicRecord.push({
-        courseId: course?._id || e.courseId,
-        code: course?.code || 'N/A',
-        name: course?.name || 'N/A',
-        score: e.totalScore ?? 0,
-        grade: e.finalGrade ?? 'F',
-        creditHours,
-        semester: e.semester
+      // 5. Calculate GPA for the current semester
+      let semQualityPoints = 0;
+      let semCreditHours = 0;
+
+      const courseRecordsForAcademicRecord: CourseRecord[] = [];
+
+      for (const e of enrollments) {
+        const course = e.courseId as any;
+        const creditHours = e.creditHours || course?.creditHours || 0;
+
+        courseRecordsForAcademicRecord.push({
+          courseId: course?._id || e.courseId,
+          code: course?.code || 'N/A',
+          name: course?.name || 'N/A',
+          score: e.totalScore ?? 0,
+          grade: e.finalGrade ?? 'F',
+          creditHours,
+          semester: e.semester
+        });
+
+        if (!e.isTraining) {
+          const gradePoints = gradeToPoints(e.finalGrade || 'F');
+          semQualityPoints += gradePoints * creditHours;
+          semCreditHours += creditHours;
+        }
+      }
+
+      const yearGpa = semCreditHours > 0 ? parseFloat((semQualityPoints / semCreditHours).toFixed(2)) : 0;
+
+      // 6. Calculate Cumulative GPA (including past years and other semesters)
+      // Fetch all academic records except the one we are currently writing
+      const previousRecords = await this.academicRecordRepository.find({
+        studentId: studentObjId,
+        $or: [
+          { academicYear: { $ne: currentYear } },
+          { academicYear: currentYear, semester: { $ne: sem } }
+        ]
       });
 
-      if (!e.isTraining) {
-        const gradePoints = gradeToPoints(e.finalGrade || 'F');
-        yearQualityPoints += gradePoints * creditHours;
-        yearCreditHours += creditHours;
+      let cumulativeQualityPoints = semQualityPoints;
+      let cumulativeCreditHours = semCreditHours;
+
+      for (const prevRecord of previousRecords) {
+        for (const prevCourse of prevRecord.courses) {
+          let prevCourseHours = (prevCourse as any).creditHours;
+          if (!prevCourseHours) {
+            const dbCourse = await this.courseRepository.findById(prevCourse.courseId);
+            prevCourseHours = dbCourse?.creditHours || 3;
+          }
+          const prevPoints = gradeToPoints(prevCourse.grade);
+          cumulativeQualityPoints += prevPoints * prevCourseHours;
+          cumulativeCreditHours += prevCourseHours;
+        }
       }
+
+      const cumulativeGpa = cumulativeCreditHours > 0
+        ? parseFloat((cumulativeQualityPoints / cumulativeCreditHours).toFixed(2))
+        : yearGpa;
+
+      // 7. Save or update the AcademicRecord for the current year and semester
+      const updatedRecord = await this.academicRecordRepository.findOneAndUpdate({
+        filter: { studentId: studentObjId, academicYear: currentYear, semester: sem },
+        update: {
+          $set: {
+            yearGpa,
+            cumulativeGpa,
+            courses: courseRecordsForAcademicRecord
+          }
+        },
+        options: { upsert: true, new: true }
+      });
+
+      evaluationResults.push({
+        semester: sem,
+        hasFailedAny,
+        yearGpa,
+        cumulativeGpa,
+        updatedRecord
+      });
     }
 
-    const yearGpa = yearCreditHours > 0 ? parseFloat((yearQualityPoints / yearCreditHours).toFixed(2)) : 0;
-
-    // 6. Calculate Cumulative GPA
-    const previousRecords = await this.academicRecordRepository.find({
-      studentId: studentObjId,
-      academicYear: { $ne: currentYear }
-    });
-
-    let cumulativeQualityPoints = yearQualityPoints;
-    let cumulativeCreditHours = yearCreditHours;
-
-    for (const prevRecord of previousRecords) {
-      for (const prevCourse of prevRecord.courses) {
-        let prevCourseHours = (prevCourse as any).creditHours;
-        if (!prevCourseHours) {
-          const dbCourse = await this.courseRepository.findById(prevCourse.courseId);
-          prevCourseHours = dbCourse?.creditHours || 3;
-        }
-        const prevPoints = gradeToPoints(prevCourse.grade);
-        cumulativeQualityPoints += prevPoints * prevCourseHours;
-        cumulativeCreditHours += prevCourseHours;
-      }
+    if (evaluationResults.length == 0) {
+      throw new BadRequestException(`No semesters are ready for evaluation for student ${student.fullName}`);
     }
 
-    const cumulativeGpa = cumulativeCreditHours > 0
-      ? parseFloat((cumulativeQualityPoints / cumulativeCreditHours).toFixed(2))
-      : yearGpa;
-
-    // 7. Save or update the AcademicRecord for the current year
-    const updatedRecord = await this.academicRecordRepository.findOneAndUpdate({
-      filter: { studentId: studentObjId, academicYear: currentYear },
-      update: {
-        $set: {
-          yearGpa,
-          cumulativeGpa,
-          courses: courseRecordsForAcademicRecord
-        }
-      },
-      options: { upsert: true, new: true }
-    });
-
-    // 8. Update student year and repeating status
+    // 8. Update student year and repeating status based on all graded enrollments
+    const anyFailedInYear = allYearEnrollments.some(e => !e.isPassed && !e.isTraining && (e.totalScore !== null && e.totalScore !== undefined));
     let nextYear = currentYear;
     let isRepeating = student.isRepeating;
 
-    if (hasFailedAny) {
+    if (anyFailedInYear) {
       isRepeating = true;
     } else {
       isRepeating = false;
       const currentYearNum = parseInt(currentYear);
-      const hasSpring = enrollments.some(e => e.semester === SemesterEnum.SPRING);
+      // Promote if student completed SPRING (or both semesters are passed)
+      const hasSpring = allYearEnrollments.some(e => e.semester === SemesterEnum.SPRING);
       if (currentYearNum < 4 && hasSpring) {
         nextYear = String(currentYearNum + 1) as AcademicYearEnum;
       }
@@ -357,18 +429,10 @@ export class AcademicRecordService {
     });
 
     return {
-      message: hasFailedAny
-        ? `Evaluation complete. Student failed at least one course. Student remains in year ${currentYear} (marked as repeating).`
-        : nextYear != currentYear
-          ? `Evaluation complete. Student passed all courses! Student promoted to year ${nextYear}.`
-          : `Evaluation complete. Student passed all current courses in year ${currentYear}.`,
-      academicYear: currentYear,
-      hasFailed: hasFailedAny,
-      yearGpa,
-      cumulativeGpa,
+      message: `Evaluation completed successfully for student ${student.fullName}. Evaluated semesters: ${evaluationResults.map(r => r.semester).join(', ')}.`,
+      results: evaluationResults,
       nextYear,
-      isRepeating,
-      record: updatedRecord
+      isRepeating
     };
   }
 
@@ -378,7 +442,13 @@ export class AcademicRecordService {
 
     for (const student of students) {
       try {
-        const result = await this.evaluateStudentStatus(student._id.toString());
+        const latestEnrollment = await this.enrollmentRepo.findOne({
+          filter: { studentId: student._id },
+          options: { sort: { createdAt: -1 } }
+        });
+        const currentSemester = latestEnrollment?.semester;
+
+        const result = await this.evaluateStudentStatus(student._id.toString(), currentSemester);
         results.push({
           studentId: student._id,
           fullName: student.fullName,

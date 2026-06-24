@@ -1,24 +1,25 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { EnrollmentStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
-import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
+import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository, AcademicRecordRepository } from '@models/index';
 import { AddCourseDto } from '../Enrollment/dto/add-course-dto';
 
 
-    export let completedCoursesCount = 0;
-    let totalCredits = 0;
-    let tasks =0;
+export let completedCoursesCount = 0;
+let totalCredits = 0;
+let tasks = 0;
 
 @Injectable()
 export class EnrollmentService {
   constructor(
-    
+
     private readonly courseRepository: CourseRepository,
     private readonly studyPlanRepository: StudyPlanRepository,
     private readonly enrollmentRepository: EnrollmentRepository,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly academicRecordRepository: AcademicRecordRepository,
   ) { }
-  
+
   // ==========================================
   // 1. جلب المواد المتاحة للتسجيل (اللي هتظهر في الـ UI)
   // ==========================================
@@ -199,14 +200,35 @@ export class EnrollmentService {
     };
   }
 
- 
+
   async getStudentEnrollmentCourses(currentUser: string) {
+    let completedCoursesCount = 0;
+    let totalCredits = 0;
 
     const studentOBJ = new Types.ObjectId(currentUser);
 
     const student = await this.userRepository.findById(studentOBJ);
     if (!student) {
       throw new NotFoundException('Not Found');
+    }
+
+    // 1. Get completed courses from past Academic Records
+    const academicRecords = await this.academicRecordRepository.find({
+      studentId: studentOBJ
+    });
+    const recordedSemesters = new Set<string>();
+    for (const record of academicRecords) {
+      if (record.courses) {
+        for (const course of record.courses) {
+          if (course.grade && course.grade !== 'F') {
+            completedCoursesCount++;
+            totalCredits += (course.creditHours || 0);
+          }
+          if (course.semester) {
+            recordedSemesters.add(`${record.academicYear}_${course.semester}`);
+          }
+        }
+      }
     }
 
 
@@ -221,7 +243,7 @@ export class EnrollmentService {
         ]
       }
     );
-  
+
     const currentEnrolledCourses: any[] = [];
     const submissionModel = (this.enrollmentRepository['model'] as any).model('Submission');
     const tasks = await submissionModel.countDocuments({
@@ -231,40 +253,42 @@ export class EnrollmentService {
     });
 
     for (const enrollment of allEnrollments) {
-      if (enrollment.isPassed) {
+      const key = `${enrollment.academicYear}_${enrollment.semester}`;
+
+      if (enrollment.isPassed && !recordedSemesters.has(key)) {
         completedCoursesCount++;
         totalCredits += (enrollment.creditHours || 0);
       }
-      else if (enrollment.enrollmentStatus == EnrollmentStatusEnum.COMPLETED) { // أو حسب الـ status عندك
+
+      // If it belongs to the student's current year, it is a current enrolled course
+      if (enrollment.academicYear === student.currentYear) {
         currentEnrolledCourses.push({
           courseName: (enrollment.courseId as any)?.name || 'N/A',
           code: (enrollment.courseId as any)?.code || 'N/A',
-
           doctor: (enrollment.professorId as any)?.fullName || 'TBA',
           credits: enrollment.creditHours || 0,
         });
       }
-
     }
-    let availableCourseCount = 40-completedCoursesCount;
-    let openRigister=false;
-    if(currentEnrolledCourses.length==0){
-      openRigister=true
+    let availableCourseCount = 40 - completedCoursesCount;
+    let openRigister = false;
+    if (currentEnrolledCourses.length == 0) {
+      openRigister = true
     }
     return {
       completedCoursesCount,
       totalCredits,
       availableCourseCount,
-        tasks,
+      tasks,
       openRigister,
       currentEnrolledCourses,
-    
+
     };
   }
 
 
 
-  
+
 
 
 
