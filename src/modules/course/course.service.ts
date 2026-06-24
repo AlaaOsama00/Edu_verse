@@ -265,9 +265,6 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
   }
 
 
-
-  
-
   async deleteCourseById(_id: Types.ObjectId) {
     const deletedCourse = await this.courseRepo.findOneAndDelete({ filter: { _id } });
     const courseInStudyPlan = await this.studyPlanRepository.findOneAndDelete({ filter: { 'courses.courseId': _id } });

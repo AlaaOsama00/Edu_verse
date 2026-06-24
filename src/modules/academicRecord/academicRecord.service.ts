@@ -203,10 +203,10 @@ export class AcademicRecordService {
       { studentId: studentObjId },
       {},
       {},
-      { path: 'clubId', select: 'name' }
+      { path: 'clubId', select: 'name imageUrl' }
     );
     const joinedCommunities = memberships
-      .map((m: any) => m.clubId ? { id: m.clubId._id, name: m.clubId.name } : null)
+      .map((m: any) => m.clubId ? { id: m.clubId._id, name: m.clubId.name, imageUrl: m.clubId.imageUrl } : null)
       .filter(Boolean);
 
     // 1. Get completed courses from past Academic Records
