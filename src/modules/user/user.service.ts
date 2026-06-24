@@ -1,4 +1,4 @@
-import { AcademicRecordRepository, UserRepository } from '@models/index';
+import { AcademicRecordRepository, UserRepository, CourseRepository, StudyPlanRepository } from '@models/index';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ActivationEnum, UserRolesEnum } from '@utils/enum'; // عدل المسار لو مختلف
 import { hashPassword } from '@utils/helpers';
@@ -12,7 +12,9 @@ export class UserService {
     constructor(
         private readonly userRepository: UserRepository,
         private readonly academicRepo: AcademicRecordRepository,
-        private readonly enrollmentService: EnrollmentService
+        private readonly enrollmentService: EnrollmentService,
+        private readonly courseRepo: CourseRepository,
+        private readonly studyPlanRepo: StudyPlanRepository,
     ) { }
 
 
@@ -140,11 +142,59 @@ export class UserService {
 
     // البروفايل
     async getStudentProfile(currentUserId: string) {
-        // 1. هنجيب بيانات الطالب الأساسية
+        // 1. هنجيب بيانات المستخدم الأساسية
         const user = await this.userRepository.findById(currentUserId);
-        if (!user || user.role != UserRolesEnum.STUDENT) throw new NotFoundException('User not found');
+        if (!user) throw new NotFoundException('User not found');
 
         const profileData = user.toObject ? user.toObject() : user;
+
+        // لو المستخدم ليس طالباً، نعرض بروفايله فقط
+        if (user.role == UserRolesEnum.PROFESSOR) {
+            const plans = await this.studyPlanRepo.find({
+                'courses.professorId': new Types.ObjectId(currentUserId)
+            });
+            const courseIds: Types.ObjectId[] = [];
+            for (const plan of plans) {
+                for (const c of plan.courses) {
+                    if (c.professorId.toString() === currentUserId) {
+                        courseIds.push(c.courseId);
+                    }
+                }
+            }
+            const uniqueCourseIds = Array.from(new Set(courseIds.map(id => id.toString()))).map(id => new Types.ObjectId(id));
+            const courses = await this.courseRepo.find({
+                _id: { $in: uniqueCourseIds }
+            });
+
+            return {
+                profile: {
+                    fullName: profileData.fullName,
+                    status: profileData.status,
+                    email: profileData.email,
+                    role: profileData.role,
+                    department: profileData.department,
+                },
+                courses: courses.map(c => ({
+                    id: c._id,
+                    name: c.name,
+                    code: c.code,
+                    creditHours: c.creditHours,
+                    department: c.department,
+                }))
+            };
+        }
+
+        if (user.role == UserRolesEnum.ADMIN) {
+            return {
+                profile: {
+                    fullName: profileData.fullName,
+                    status: profileData.status,
+                    email: profileData.email,
+                    role: profileData.role,
+                    department: profileData.department,
+                }
+            };
+        }
 
 
         // 2. لو اليوزر طالب، هنجيب إحصائياته والمواد اللي مسجلها (ممكن تعدلي أسماء الـ Repos حسب اللي عندك)

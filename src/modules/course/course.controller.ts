@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { UserRolesEnum } from '@utils/enum';
 import { Auth } from '@decorators/authDecorator';
@@ -33,7 +33,7 @@ export class CourseController {
 
   @Auth(UserRolesEnum.ADMIN)
   @Patch(':id')
-  UpdateCourse(@Param('id') id: Types.ObjectId, @Body() updateCourseDto: UpdateCourseDto) {
+  UpdateCourse(@Param('id') id: Types.ObjectId, @Body() updateCourseDto: any) {
     return this.courseService.updateCourse(id, updateCourseDto);
   }
 

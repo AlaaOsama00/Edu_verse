@@ -1,11 +1,9 @@
-import { Injectable, NotFoundException, Delete, ConflictException } from '@nestjs/common';
-import { IMarks } from '@interfaces/IMarks';
+import { Injectable, NotFoundException, Delete, ConflictException, BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { SemesterEnum, UserRolesEnum } from '@utils/enum';
 import type { IPagination } from '@decorators/pagination.decorator';
 import { CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
 import { CreateCourseDto } from './dto/createCourse.dto';
-import { UpdateCourseDto } from './dto/updateCourse.dto';
 
 @Injectable()
 export class CourseService {
@@ -244,12 +242,31 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
     return result[0];
   }
 
-  async updateCourse(id: Types.ObjectId, dto: UpdateCourseDto) {
+  async updateCourse(id: Types.ObjectId, dto: any) {
+    // التأكد من عدم وجود أي حقول أخرى غير الـ description في الـ Request Body
+    const keys = Object.keys(dto);
+    const hasOtherKeys = keys.some(key => key != 'description');
+    if (hasOtherKeys) {
+      throw new BadRequestException('Updating any field other than description is not allowed');
+    }
+
+    if (dto.description != undefined && typeof dto.description !== 'string') {
+      throw new BadRequestException('description must be a string');
+    }
+
     // بنعمل update وبنشوف لو رجع null يبقى الكورس مش موجود
-    const updatedCourse = await this.courseRepo.update({ filter: { _id: id }, update: dto });
+    const updatedCourse = await this.courseRepo.update({ 
+      filter: { _id: id }, 
+      update: { description: dto.description },
+      options: { new: true }
+    });
     if (!updatedCourse) throw new NotFoundException('Course not found');
     return updatedCourse;
   }
+
+
+
+  
 
   async deleteCourseById(_id: Types.ObjectId) {
     const deletedCourse = await this.courseRepo.findOneAndDelete({ filter: { _id } });
