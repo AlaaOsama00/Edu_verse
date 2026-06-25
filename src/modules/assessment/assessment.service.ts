@@ -70,7 +70,7 @@ export class AssessmentService {
 
     // 4. إرسال الإشعار للطلبة (نفس الكود اللي فات)
     const enrolledStudents = await this.enrollmentRepo.find({
-      filter: { courseId: dto.courseId }
+      courseId: new Types.ObjectId(dto.courseId)
     });
 
     // جوه دالة الـ createTask في الـ TaskService
@@ -124,7 +124,7 @@ export class AssessmentService {
     }
 
     // 3. مسح الأسايمنت من الداتا بيز
-    await this.assessmentRepo.deleteOne( {filter:new Types.ObjectId(assessmentId)});
+    await this.assessmentRepo.deleteOne({ filter: { _id: new Types.ObjectId(assessmentId) } });
 
     // 4. إرجاع رسالة تأكيد للـ Frontend
     return {
@@ -199,8 +199,18 @@ export class AssessmentService {
   // جلب كل التقييمات الخاصة بكورس معين
   // ==========================================
   async getCourseAssessments(courseId: string) {
-    return await this.assessmentRepo.find({
-      filter: { courseId: new Types.ObjectId(courseId) }
+    const assessments = await this.assessmentRepo.find(
+      { courseId: new Types.ObjectId(courseId) },
+      undefined,
+      undefined,
+      [
+        { path: 'courseId', select: 'name code' }
+      ]
+    );
+
+    return assessments.map(assessment => {
+      const obj = assessment.toObject ? assessment.toObject() : assessment;
+      return obj;
     });
   }
 

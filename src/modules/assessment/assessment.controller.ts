@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Patch, UseInterceptors, UploadedFile, BadRequestException, Delete } from '@nestjs/common'
+import { Controller, Post, Get, Body, Param, UseInterceptors, UploadedFile, BadRequestException, Delete } from '@nestjs/common'
 import { AssessmentService } from './assessment.service'
 import { Auth } from '@decorators/authDecorator'
 import { UserRolesEnum } from '@utils/enum'
@@ -36,7 +36,7 @@ export class AssessmentController {
   }
   // عرض كل تقييمات المادة (لما يفتح الـ Gradebook)
   @Get('course/:courseId')
-  @Auth(UserRolesEnum.STUDENT)
+  @Auth(UserRolesEnum.STUDENT, UserRolesEnum.PROFESSOR)
   async getCourseAssessments(@Param('courseId') courseId: string) {
     return this.assessmentService.getCourseAssessments(courseId);
   }

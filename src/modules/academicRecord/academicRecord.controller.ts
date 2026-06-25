@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, ForbiddenException } from '@nestjs/common';
 import { AcademicRecordService } from './academicRecord.service';
 import { UserRolesEnum, SemesterEnum } from '@utils/enum';
 import { CurrentUser } from '@decorators/userDecorator';
@@ -8,24 +8,29 @@ import { Auth } from '@decorators/authDecorator';
 export class AcademicRecordController {
   constructor(private readonly academicRecordService: AcademicRecordService) { }
 
-  @Get('my-courses')
-  @Auth(UserRolesEnum.STUDENT)
-  async getMyCourses(
-    @CurrentUser('_id') studentId: string,
-    @Query('academicYear') academicYear?: string,
-    @Query('semester') semester?: SemesterEnum,
-  ) {
-    return this.academicRecordService.getAllCourses(studentId, academicYear, semester);
-  }
+  // @Get('my-courses')
+  // @Auth(UserRolesEnum.STUDENT)
+  // async getMyCourses(
+  //   @CurrentUser('_id') studentId: string,
+  //   @Query('academicYear') academicYear?: string,
+  //   @Query('semester') semester?: SemesterEnum,
+  // ) {
+  //   return this.academicRecordService.getAllAcademicSummary(studentId, academicYear, semester);
+  // }
 
   @Get('courses/:studentId')
-  @Auth(UserRolesEnum.PROFESSOR, UserRolesEnum.ADMIN)
+  @Auth(UserRolesEnum.PROFESSOR, UserRolesEnum.ADMIN, UserRolesEnum.STUDENT)
   async getStudentCourses(
     @Param('studentId') studentId: string,
+    @CurrentUser('_id') currentUserId: string,
+    @CurrentUser('role') role: UserRolesEnum,
     @Query('academicYear') academicYear?: string,
     @Query('semester') semester?: SemesterEnum,
   ) {
-    return this.academicRecordService.getAllCourses(studentId, academicYear, semester);
+    if (role == UserRolesEnum.STUDENT && currentUserId.toString() != studentId.toString()) {
+      throw new ForbiddenException('You are not allowed to view other students\' academic records');
+    }
+    return this.academicRecordService.getAllAcademicSummary(studentId, academicYear, semester);
   }
 
 

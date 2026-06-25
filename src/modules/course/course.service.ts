@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException, Delete, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { SemesterEnum, UserRolesEnum } from '@utils/enum';
 import type { IPagination } from '@decorators/pagination.decorator';
 import { CourseRepository, StudyPlanRepository, UserRepository } from '@models/index';
 import { CreateCourseDto } from './dto/createCourse.dto';
@@ -38,7 +37,7 @@ export class CourseService {
         assignment2: 10,
       };
     }
-    
+
 
     // 3. إنشاء الكورس في قاعدة البيانات
     // استخدمي create بدلاً من insertMany لأننا نتعامل مع كورس واحد
@@ -70,7 +69,7 @@ export class CourseService {
     };
   }
 
-async getAllCourses(userRole,pagination: IPagination, search?: string) {
+  async getAllCourses(userRole, pagination: IPagination, search?: string) {
     const { skip, limit } = pagination;
 
     const filter: any = {};
@@ -98,7 +97,7 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
       };
     }
 
-    
+
     // --- 2. جلب بيانات الـ Study Plan ---
     const courseIds = courses.map((course: any) => course._id);
 
@@ -128,7 +127,7 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
 
     // --- 4. جلب أسماء الدكاترة من قاعدة البيانات ---
     const professorIdsArray = Array.from(professorIdsSet);
-    
+
     // (تأكدي إن الـ userRepository موجود في الـ constructor)
     const professors = await this.userRepository.find({
       _id: { $in: professorIdsArray.map(id => new Types.ObjectId(id)) }
@@ -143,9 +142,9 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
     // --- 5. دمج الكورسات مع الداتا بتاعة الـ Study Plan واسم الدكتور ---
     const data = courses.map((course: any) => {
       const courseObj = course.toObject ? course.toObject() : JSON.parse(JSON.stringify(course));
-      
+
       const extraData = planMap.get(courseObj._id.toString()) || {};
-      
+
       // بنجيب اسم الدكتور باستخدام الـ ID بتاعه
       const profIdString = extraData.professorId ? extraData.professorId.toString() : null;
       const professorName = profIdString ? professorsMap.get(profIdString) : null;
@@ -255,8 +254,8 @@ async getAllCourses(userRole,pagination: IPagination, search?: string) {
     }
 
     // بنعمل update وبنشوف لو رجع null يبقى الكورس مش موجود
-    const updatedCourse = await this.courseRepo.update({ 
-      filter: { _id: id }, 
+    const updatedCourse = await this.courseRepo.update({
+      filter: { _id: id },
       update: { description: dto.description },
       options: { new: true }
     });

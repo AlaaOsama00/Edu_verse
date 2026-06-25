@@ -25,7 +25,7 @@ export class AcademicRecordService {
   // - academicYear: يجيب سنة معينة بس
   // - semester: يجيب ترم معين بس (من كل السنين أو من السنة المحددة)
   // ==========================================
-  async getAllCourses(
+  async getAllAcademicSummary(
     studentId: string,
     academicYear?: string,
     semester?: SemesterEnum,
@@ -40,7 +40,7 @@ export class AcademicRecordService {
 
     const records = await this.academicRecordRepository.find(filter);
 
-    if (records.length === 0) {
+    if (records.length == 0) {
       throw new NotFoundException('Not found');
     }
 
