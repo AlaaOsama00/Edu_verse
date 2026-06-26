@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, ForbiddenException, ConflictException,
 import { Types } from 'mongoose';
 import { AssessmentRepository, CourseRepository, EnrollmentRepository, StudyPlanRepository } from '@models/index';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { calculateTimeLeft } from '@utils/helpers';
 import { CloudinaryService } from 'src/common/multer/cloudinary.service';
 import { CommunityGateway } from '../community/community.gateway';
@@ -214,8 +215,84 @@ export class AssessmentService {
     });
   }
 
+  // ==========================================
+  // جلب تقييم معين بالـ ID
+  // ==========================================
+  async getAssignmentById(professorId: string, assessmentId: string) {
+    const assignment = await this.assessmentRepo.findById(new Types.ObjectId(assessmentId));
 
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
 
+    if (assignment.createdBy.toString() !== professorId) {
+      throw new ForbiddenException('You are not authorized to view this assignment');
+    }
 
+    const obj = assignment.toObject ? assignment.toObject() : assignment;
+    const { __v, ...response } = obj;
+    return response;
+  }
 
+  // ==========================================
+  // تحديث تقييم معين بالـ ID
+  // ==========================================
+  async updateAssignment(
+    professorId: string,
+    assessmentId: string,
+    dto: UpdateAssignmentDto,
+    file?: Express.Multer.File,
+  ) {
+    const assignment = await this.assessmentRepo.findById(new Types.ObjectId(assessmentId));
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (assignment.createdBy.toString() !== professorId) {
+      throw new ForbiddenException('You are not allowed to update this assignment');
+    }
+
+    const updateData: any = { ...dto };
+
+    if (dto.courseId) {
+      updateData.courseId = new Types.ObjectId(dto.courseId);
+    }
+
+    if (file) {
+      if (!file.buffer) {
+        throw new BadRequestException('File buffer is empty');
+      }
+
+      // رفع الملف الجديد لكلاوديناري
+      const fileUrl = await this.cloudinaryService.uploadAssignment(file);
+      updateData.fileUrl = fileUrl;
+
+      // مسح الملف القديم
+      if (assignment.fileUrl) {
+        const publicId = this.cloudinaryService.extractPublicId(assignment.fileUrl);
+        if (publicId) {
+          await this.cloudinaryService.deleteFile(publicId);
+        }
+      }
+    }
+
+    if (dto.type) {
+      updateData.maxMarkAssessment = ASSESSMENT_MAX_MARKS[dto.type];
+    }
+
+    const updatedAssignment = await this.assessmentRepo.findOneAndUpdate({
+      filter: { _id: new Types.ObjectId(assessmentId) },
+      update: updateData,
+      options: { new: true },
+    });
+
+    if (!updatedAssignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    const obj = updatedAssignment.toObject ? updatedAssignment.toObject() : updatedAssignment;
+    const { __v,...response } = obj;
+    return response;
+  }
 }

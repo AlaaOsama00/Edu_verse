@@ -1,8 +1,9 @@
-import { Controller, Post, Get, Body, Param, UseInterceptors, UploadedFile, BadRequestException, Delete } from '@nestjs/common'
+import { Controller, Post, Get, Body, Param, UseInterceptors, UploadedFile, BadRequestException, Delete, Patch } from '@nestjs/common'
 import { AssessmentService } from './assessment.service'
 import { Auth } from '@decorators/authDecorator'
 import { UserRolesEnum } from '@utils/enum'
 import { CreateAssignmentDto } from './dto/create-assignment.dto'
+import { UpdateAssignmentDto } from './dto/update-assignment.dto'
 import { CurrentUser } from '@decorators/userDecorator'
 import { FileInterceptor } from '@nestjs/platform-express'
 
@@ -47,6 +48,24 @@ export class AssessmentController {
     return this.assessmentService.getUpcomingAnnouncements(studentId);
   }
 
+  @Get(':assessmentId')
+  @Auth(UserRolesEnum.PROFESSOR)
+  async getAssignmentById(
+    @CurrentUser('_id') professorId: string,
+    @Param('assessmentId') assessmentId: string,
+  ) {
+    return this.assessmentService.getAssignmentById(professorId, assessmentId);
+  }
 
-
+  @Patch(':assessmentId')
+  @Auth(UserRolesEnum.PROFESSOR)
+  @UseInterceptors(FileInterceptor('file'))
+  async updateAssignment(
+    @CurrentUser('_id') professorId: string,
+    @Param('assessmentId') assessmentId: string,
+    @Body() dto: UpdateAssignmentDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.assessmentService.updateAssignment(professorId, assessmentId, dto, file);
+  }
 }

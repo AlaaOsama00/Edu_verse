@@ -32,7 +32,7 @@ export class Assessment {
 
   @Prop({ type: Date, default: null })
   deadline: Date; // موعد التسليم (الميدترم مافيش ليه موعد تسليم، الطالب بيجي يمتحن)
-  
+
   
 }
 
