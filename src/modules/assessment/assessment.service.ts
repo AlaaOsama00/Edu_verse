@@ -225,7 +225,7 @@ export class AssessmentService {
       throw new NotFoundException('Assignment not found');
     }
 
-    if (assignment.createdBy.toString() !== professorId) {
+    if (assignment.createdBy.toString() != professorId) {
       throw new ForbiddenException('You are not authorized to view this assignment');
     }
 
