@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { CourseController } from './course.controller';
 import { CourseService } from './course.service';
+import { CacheModule } from '@nestjs/cache-manager';
 
 
 @Module({
@@ -15,7 +16,7 @@ import { CourseService } from './course.service';
           },
           { name: StudyPlan.name, schema: StudyPlanSchema }
           ]),
-
+          CacheModule.register(),
      ],
      controllers: [CourseController],
      providers: [
