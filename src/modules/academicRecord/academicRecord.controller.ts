@@ -57,7 +57,7 @@ export class AcademicRecordController {
   }
 
   @Post('evaluate-all')
-  @Auth(UserRolesEnum.PROFESSOR) // فقط الأدمن يقدر يعمل تقييم لكل الطلاب دفعة واحدة
+  @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يعمل تقييم لكل الطلاب دفعة واحدة
   async evaluateAllStudentsStatus() {
     return this.academicRecordService.evaluateAllStudents();
   }
