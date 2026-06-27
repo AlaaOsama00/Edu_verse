@@ -19,8 +19,15 @@ export class CourseService {
     const { professorEmail, ...courseDataWithoutEmail } = dto;
 
     const professor = await this.userRepository.findByEmail(professorEmail)
-    const course = await this.courseRepo.find({ filter: dto.code })
+    const course = await this.courseRepo.findOne({ filter: { code: dto.code } });
+   
+   // السطر ده هيطبع جزء من اللينك عشان نتأكد هو قاري اللينك الصح ولا قاري undefined
+console.log('Railway is using this Mongo URL:', process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 20) + '...' : 'UNDEFINED!');
+
+// السطر ده هيطبع اسم قاعدة البيانات الفعلية اللي السيرفر متصل بيها دلوقتي
+console.log('Connected Database Name:', this.courseRepo.getDatabaseName());
     if (course) {
+
       throw new ConflictException('course already exists');
     }
 

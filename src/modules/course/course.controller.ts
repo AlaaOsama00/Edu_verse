@@ -42,6 +42,7 @@ export class CourseController {
   @Auth(UserRolesEnum.ADMIN)
   @Post('create')
   CreateCourse(@Body() createCourseDto: CreateCourseDto) {
+    
     return this.courseService.createCourse(createCourseDto);
   }
 

@@ -13,6 +13,11 @@ import {
 export abstract class AbstractRepository<T> {
 
   constructor(protected readonly model: Model<T>) {}
+
+  getDatabaseName(): string {
+    return this.model.db.name;
+  }
+
    async create( data: any ) : Promise<T> {
     return await this.model.create(data)
   }
