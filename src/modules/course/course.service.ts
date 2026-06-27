@@ -19,6 +19,10 @@ export class CourseService {
     const { professorEmail, ...courseDataWithoutEmail } = dto;
 
     const professor = await this.userRepository.findByEmail(professorEmail)
+    
+    if (!professor) {
+      throw new NotFoundException('professor not found');
+    }
     const course = await this.courseRepo.findOne({ filter: { code: dto.code } });
    
     if (course) {
