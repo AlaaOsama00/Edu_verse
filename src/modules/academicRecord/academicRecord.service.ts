@@ -325,7 +325,7 @@ export class AcademicRecordService {
 
     for (const sem of semestersToEvaluate) {
       const enrollments = allYearEnrollments.filter(e => e.semester === sem);
-      if (enrollments.length === 0) {
+      if (enrollments.length == 0) {
         if (semester) {
           throw new BadRequestException(`No enrollments found for student in semester ${sem}`);
         }

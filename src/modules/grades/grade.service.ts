@@ -5,7 +5,7 @@ import { BulkGradeDto } from './dtos/bulk-grade.dto';
 import { AcademicRecordService } from '../academicRecord/academicRecord.service';
 import { GradeEnum } from '@utils/enum';
 
-function mapScoreToGradeLetter(score: number): GradeEnum {
+export function mapScoreToGradeLetter(score: number): GradeEnum {
   if (score >= 97) return GradeEnum.A_PLUS;
   if (score >= 93) return GradeEnum.A;
   if (score >= 90) return GradeEnum.A_MINUS;
@@ -51,7 +51,7 @@ export class GradeService {
             })
             .populate('courseId', 'name code creditHours');
 
-        if (enrollments.length === 0) {
+        if (enrollments.length == 0) {
             throw new NotFoundException('No Enrollments for you');
         }
 
@@ -180,7 +180,7 @@ export class GradeService {
     );
 
     // 2. لو الطالب مش مسجل أي مواد في الترم ده
-    if (!enrollments || enrollments.length === 0) {
+    if (!enrollments || enrollments.length == 0) {
       return [];
     }
 
@@ -203,7 +203,7 @@ export class GradeService {
     // 3. رفع درجات الامتحان من الإكسل (براكتيكال/ميدترم/فاينال)
     // ==========================================
     async UploadGrades(courseId: string, dto: BulkGradeDto[]) {
-      if (!dto || dto.length === 0) {
+      if (!dto || dto.length == 0) {
         throw new BadRequestException('No grade records provided');
       }
 
@@ -226,7 +226,8 @@ export class GradeService {
           throw new BadRequestException(`Enrollment not found for student ${item.studentAcademicId} in course ${courseId}`);
         }
 
-        const currentMarks = enrollment.marks || { midterm: 0, final: 0, practical: 0, assignment1: 0, assignment2: 0 };
+        const enrollmentObj = enrollment.toObject ? enrollment.toObject() : enrollment;
+        const currentMarks = enrollmentObj.marks || { midterm: 0, final: 0, practical: 0, assignment1: 0, assignment2: 0 };
         const updatedMarks = {
           midterm: item.midterm != undefined ? item.midterm : (currentMarks.midterm ?? 0),
           final: item.final != undefined ? item.final : (currentMarks.final ?? 0),
@@ -238,7 +239,7 @@ export class GradeService {
         // Recalculate scores
         let totalScore = 0;
         Object.values(updatedMarks).forEach((mark: number) => {
-          if (typeof mark === 'number') {
+          if (typeof mark == 'number') {
             totalScore += mark;
           }
         });
@@ -258,7 +259,7 @@ export class GradeService {
             GradeEnum.F
           ];
           const currentIndex = gradeScale.indexOf(earnedGrade);
-          if (currentIndex !== -1 && earnedGrade !== GradeEnum.F) {
+          if (currentIndex != -1 && earnedGrade != GradeEnum.F) {
             const nextIndex = Math.min(currentIndex + 1, gradeScale.length - 1);
             finalGrade = gradeScale[nextIndex];
           } else {

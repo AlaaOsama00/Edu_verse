@@ -1,8 +1,9 @@
 import { AssessmentRepository, EnrollmentRepository, UserRepository, SubmissionRepository } from '@models/index';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { AssessmentTypeEnum, GradeStatusEnum, SubmissionStatusEnum } from '@utils/enum';
+import { AssessmentTypeEnum, GradeStatusEnum, SubmissionStatusEnum, GradeEnum } from '@utils/enum';
 import { AcademicRecordService } from '../academicRecord/academicRecord.service';
+import { mapScoreToGradeLetter } from '../grades/grade.service';
 
 
 @Injectable()
@@ -68,19 +69,71 @@ export class SubmissionService {
     }
 
     if (markFieldToUpdate) {
-      await this.enrollmentRepo.findOneAndUpdate({
+      const enrollment = await this.enrollmentRepo.findOne({
         filter: {
           studentId: new Types.ObjectId(studentId),
           courseId: assessment.courseId,
-        },
-        update: {
-          $set: {
-            // نستخدم الأقواس المربعة لجعل اسم الحقل ديناميكياً
-            [markFieldToUpdate]: 10
-          }
-        },
-        options: { new: true }
+        }
       });
+      if (enrollment) {
+        const enrollmentObj = enrollment.toObject ? enrollment.toObject() : enrollment;
+        const currentMarks = enrollmentObj.marks || { midterm: 0, final: 0, practical: 0, assignment1: 0, assignment2: 0 };
+        const key = markFieldToUpdate.split('.')[1];
+        const updatedMarks = {
+          midterm: currentMarks.midterm ?? 0,
+          final: currentMarks.final ?? 0,
+          practical: currentMarks.practical ?? 0,
+          assignment1: currentMarks.assignment1 ?? 0,
+          assignment2: currentMarks.assignment2 ?? 0,
+          [key]: 10,
+        };
+
+        // Recalculate scores
+        let totalScore = 0;
+        Object.values(updatedMarks).forEach((mark: number) => {
+          if (typeof mark === 'number') {
+            totalScore += mark;
+          }
+        });
+
+        // Determine passing and penalty
+        const isPassed = totalScore >= 60;
+        const earnedGrade = mapScoreToGradeLetter(totalScore);
+        let finalGrade = earnedGrade;
+        let hasPenalty = !isPassed;
+
+        if (enrollment.attemptCount === 2) {
+          const gradeScale = [
+            GradeEnum.A_PLUS, GradeEnum.A, GradeEnum.A_MINUS,
+            GradeEnum.B_PLUS, GradeEnum.B, GradeEnum.B_MINUS,
+            GradeEnum.C_PLUS, GradeEnum.C, GradeEnum.C_MINUS,
+            GradeEnum.D_PLUS, GradeEnum.D, GradeEnum.D_MINUS,
+            GradeEnum.F
+          ];
+          const currentIndex = gradeScale.indexOf(earnedGrade);
+          if (currentIndex !== -1 && earnedGrade !== GradeEnum.F) {
+            const nextIndex = Math.min(currentIndex + 1, gradeScale.length - 1);
+            finalGrade = gradeScale[nextIndex];
+          } else {
+            finalGrade = GradeEnum.F;
+          }
+          hasPenalty = true;
+        }
+
+        await this.enrollmentRepo.findOneAndUpdate({
+          filter: { _id: enrollment._id },
+          update: {
+            $set: {
+              marks: updatedMarks,
+              totalScore,
+              earnedGrade,
+              finalGrade,
+              isPassed,
+              hasPenalty,
+            }
+          }
+        });
+      }
     }
 
     return {

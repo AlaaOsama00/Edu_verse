@@ -289,17 +289,6 @@ export class EnrollmentService {
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
   async dropAllEnrollments() {
     const enrollmentResult = await this.enrollmentRepository.deleteMany({ filter: {} });
     const assessmentResult = await this.assessmentRepository.deleteMany({ filter: {} });
