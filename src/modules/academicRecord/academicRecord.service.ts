@@ -455,38 +455,31 @@ export class AcademicRecordService {
     const results: any[] = [];
 
     for (const student of students) {
-      try {
-        const latestEnrollment = await this.enrollmentRepo.findOne({
-          filter: { studentId: student._id },
-          options: { sort: { createdAt: -1 } }
-        });
-        const currentSemester = latestEnrollment?.semester;
+      const latestEnrollment = await this.enrollmentRepo.findOne({
+        filter: { studentId: student._id },
+        options: { sort: { createdAt: -1 } }
+      });
+      const currentSemester = latestEnrollment?.semester;
 
-        const result = await this.evaluateStudentStatus(student._id.toString(), currentSemester);
-        results.push({
-          studentId: student._id,
-          fullName: student.fullName,
-          status: 'SUCCESS',
-          message: result.message,
-          nextYear: result.nextYear,
-          isRepeating: result.isRepeating,
-        });
-      } catch (err: any) {
-        results.push({
-          studentId: student._id,
-          fullName: student.fullName,
-          status: 'FAILED',
-          error: err.message || 'Unknown error',
-        });
-      }
+      const result = await this.evaluateStudentStatus(student._id.toString(), currentSemester);
+      results.push({
+        studentId: student._id,
+        fullName: student.fullName,
+        status: 'SUCCESS',
+        message: result.message,
+        nextYear: result.nextYear,
+        isRepeating: result.isRepeating,
+      });
     }
+
+    const drops = await this.enrollmentService.dropAllEnrollments();
 
     return {
       total: students.length,
-      successCount: results.filter(r => r.status === 'SUCCESS').length,
-      failedCount: results.filter(r => r.status === 'FAILED').length,
+      successCount: results.length,
+      failedCount: 0,
       results,
-      drops: await this.enrollmentService.dropAllEnrollments()
+      drops
     };
   }
 }
