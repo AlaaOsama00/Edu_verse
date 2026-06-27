@@ -298,8 +298,8 @@ export class AcademicRecordService {
     }
 
     // Determine which semesters to evaluate
-    const semestersToEvaluate = semester 
-      ? [semester] 
+    const semestersToEvaluate = semester
+      ? [semester]
       : Array.from(new Set(allYearEnrollments.map(e => e.semester as SemesterEnum)));
 
     const evaluationResults: any[] = [];
@@ -314,7 +314,7 @@ export class AcademicRecordService {
       }
 
       // Assert all courses in this semester have been graded (excluding training if not graded yet)
-      const ungradedCourses = enrollments.filter(e => !e.isTraining && (e.totalScore === null || e.totalScore === undefined || e.finalGrade === null));
+      const ungradedCourses = enrollments.filter(e => !e.isTraining && (e.totalScore == null || e.totalScore == undefined || e.finalGrade == null));
       if (ungradedCourses.length > 0) {
         if (semester) {
           const courseNames = ungradedCourses.map(e => (e.courseId as any)?.name || 'Unknown').join(', ');
@@ -455,6 +455,13 @@ export class AcademicRecordService {
     const results: any[] = [];
 
     for (const student of students) {
+      const hasEnrollments = await this.enrollmentRepo.findOne({
+        filter: { studentId: student._id, academicYear: student.currentYear }
+      });
+      if (!hasEnrollments) {
+        continue;
+      }
+
       const latestEnrollment = await this.enrollmentRepo.findOne({
         filter: { studentId: student._id },
         options: { sort: { createdAt: -1 } }
