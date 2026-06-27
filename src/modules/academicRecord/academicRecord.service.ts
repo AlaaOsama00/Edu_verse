@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { GradeStatusEnum, SemesterEnum, SummerReasonEnum, AcademicYearEnum, UserRolesEnum } from '@utils/enum';
+import { GradeStatusEnum, SemesterEnum, SummerReasonEnum, AcademicYearEnum, UserRolesEnum, SubmissionStatusEnum } from '@utils/enum';
 import { EnrollmentRepository, UserRepository, AcademicRecordRepository, SubmissionRepository, CourseRepository, CourseRecord, ClubMembershipRepository } from '@models/index';
 import { Types } from 'mongoose';
 import { gradeToPoints } from '@utils/helpers';
@@ -125,40 +125,65 @@ export class AcademicRecordService {
     const currentGPA = latestRecord?.cumulativeGpa ?? 0;
 
     // ==========================================
-    // 2. إحصائيات الـ Assessments (Tasks) - بنجيبهم من جدول الـ Grade
+    // 2. إحصائيات الـ Assessments (Tasks) - بنجيبهم من جدول الـ Grade للترم الحالي
     // ==========================================
-    // إجمالي الـ Assessments اللي الطالب اتسلمها أو اتدرجت فيها طول عمره في الجامعة
-    const gradeStats = await this.submissionRepository.aggregate([
+    // جلب آخر تسجيل أكاديمي لتحديد الترم والسنة الحالية للطالب
+    const latestEnrollment = await this.enrollmentRepo.findOne({
+      filter: { studentId: studentObjId },
+      options: { sort: { createdAt: -1 } }
+    });
 
-      { $match: { studentId: studentObjId } },
+    let currentCourseIds: Types.ObjectId[] = [];
+    if (latestEnrollment) {
+      const currentEnrollments = await this.enrollmentRepo.find({
+        studentId: studentObjId,
+        academicYear: latestEnrollment.academicYear,
+        semester: latestEnrollment.semester,
+      });
+      currentCourseIds = currentEnrollments.map(e => e.courseId);
+    }
 
-      // 2. شيلنا فوراً كل الحقول اللي مش محتاجها عشان الـ Response يبقى نضيف
-      {
-        $project: {
-          gradeStatus: 1,
-          _id: 0
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    if (currentCourseIds.length > 0) {
+      const gradeStats = await this.submissionRepository.aggregate([
+        { 
+          $match: { 
+            studentId: studentObjId,
+            submissionStatus: SubmissionStatusEnum.SUBMITTED,
+            courseId: { $in: currentCourseIds }
+          } 
+        },
+
+        // 2. شيلنا فوراً كل الحقول اللي مش محتاجها عشان الـ Response يبقى نضيف
+        {
+          $project: {
+            gradeStatus: 1,
+            _id: 0
+          }
+        },
+
+        // 3. $facet: نفصل الداتا لـ "مجموع الكل" و "اللي اتعملت grading"
+        {
+          $facet: {
+            // القسم الأول: إجمالي الـ Tasks
+            totalTasks: [
+              { $count: 'total' }
+            ],
+            // القسم التاني: اللي اتحسبلوا فعلاً
+            completedTasks: [
+              { $match: { gradeStatus: GradeStatusEnum.GRADED } },
+              { $count: 'completed' }
+            ]
+          }
         }
-      },
+      ]);
 
-      // 3. $facet: نفصل الداتا لـ "مجموع الكل" و "اللي اتعملتgrading"
-      {
-        $facet: {
-          // القسم الأول: إجمالي الـ Tasks
-          totalTasks: [
-            { $count: 'total' }
-          ],
-          // القسم التاني: اللي اتحسبلوا فعلاً
-          completedTasks: [
-            { $match: { gradeStatus: GradeStatusEnum.GRADED } }, // استخدمناً الـ String مباشرة عشان الـ Repo مش بيشتغل مع الـ Enum في الـ Aggregate دايماً
-            { $count: 'completed' }
-          ]
-        }
-      }
-    ]);
-
-    // استخراج النتائج من الـ Array اللي رجعته الـ Facet
-    const totalTasks = gradeStats[0]?.total?.[0]?.total || 0;
-    const completedTasks = gradeStats[0]?.completed?.[0]?.completed || 0;
+      // استخراج النتائج من الـ Array اللي رجعته الـ Facet باستخدام المفاتيح الصحيحة
+      totalTasks = gradeStats[0]?.totalTasks?.[0]?.total || 0;
+      completedTasks = gradeStats[0]?.completedTasks?.[0]?.completed || 0;
+    }
 
     // ==========================================
     // 3. التدريب الصيفي (Applied Training)
