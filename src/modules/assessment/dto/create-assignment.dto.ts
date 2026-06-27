@@ -17,5 +17,5 @@ export class CreateAssignmentDto {
 
   @IsDateString()
   @IsNotEmpty()
-  deadline: Date; // التاريخ اللي هيتقفل عنده
-}
+  deadline: Date;  
+  }

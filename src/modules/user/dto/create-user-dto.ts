@@ -2,10 +2,11 @@ import { UserRolesEnum, AcademicYearEnum } from "@utils/enum";
 import { IsString, IsNotEmpty, IsEmail, MinLength, IsEnum, ValidateIf } from "class-validator";
 
  export class CreateUserDto {
+   @ValidateIf((o) => o.role != UserRolesEnum.STUDENT)
    @IsString()
    @IsNotEmpty()
    @IsEmail()
-   email: string;
+   email?: string;
   
 
    @IsString()
@@ -15,7 +16,6 @@ import { IsString, IsNotEmpty, IsEmail, MinLength, IsEnum, ValidateIf } from "cl
 
    @IsString()
    @IsNotEmpty()
-   // @Matches(...)  TO DO: Add regex for password complexity
    password: string;
 
    @IsEnum(UserRolesEnum)

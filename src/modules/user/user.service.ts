@@ -19,14 +19,24 @@ export class UserService {
 
 
     async createUser(createUserDto: CreateUserDto) {
+        if (createUserDto.role == UserRolesEnum.STUDENT) {
+            if (!createUserDto.currentYear || !createUserDto.academicId) {
+                throw new BadRequestException('currentYear and academicId are required ');
+            }
+            createUserDto.email = `eduverse.${createUserDto.academicId}@yopmail.com`;
+        } else {
+            if (createUserDto.academicId || createUserDto.currentYear) {
+                throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
+            }
+            if (!createUserDto.email) {
+                throw new BadRequestException('email is required for non-student roles.');
+            }
+        }
 
         const existingUser = await this.userRepository.findOne({ filter: { email: createUserDto.email } });
         if (existingUser) { throw new BadRequestException('This email already exists.'); }
 
-        if (createUserDto.role === UserRolesEnum.STUDENT) {
-
-            if (!createUserDto.currentYear || !createUserDto.academicId) { throw new BadRequestException('currentYear and academicId are required '); }
-
+        if (createUserDto.role == UserRolesEnum.STUDENT) {
             const existingStudentId = await this.userRepository.findOne({ filter: { academicId: createUserDto.academicId } });
 
             if (existingStudentId) {
@@ -34,11 +44,6 @@ export class UserService {
             }
         }
 
-        else {
-            if (createUserDto.academicId || createUserDto.currentYear) {
-                throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
-            }
-        }
         const hashedPassword = await hashPassword(createUserDto.password);
         const user: any = {
             fullName: createUserDto.fullName,
@@ -72,35 +77,41 @@ export class UserService {
             throw new NotFoundException('User not found');
         }
 
-        if (existingUser.role === UserRolesEnum.STUDENT) {
-            if (updateUserDto.currentYear) userData.currentYear = updateUserDto.currentYear;
+        let emailToCheck: string | undefined;
+
+        if (existingUser.role == UserRolesEnum.STUDENT) {
+            if (updateUserDto.currentYear) {
+                userData.currentYear = updateUserDto.currentYear;
+            }
             if (updateUserDto.academicId) {
                 const existingStudentId = await this.userRepository.findOne({ filter: { academicId: updateUserDto.academicId } });
-                if (existingStudentId) {
+                if (existingStudentId && existingStudentId._id.toString() !== id.toString()) {
                     throw new BadRequestException('This academicId is already in use.');
                 }
                 userData.academicId = updateUserDto.academicId;
+                userData.email = `eduverse.${updateUserDto.academicId}@yopmail.com`;
+                emailToCheck = userData.email;
+            } else if (updateUserDto.email) {
+                userData.email = `eduverse.${existingUser.academicId}@yopmail.com`;
+                emailToCheck = userData.email;
+            }
+        } else {
+            if (updateUserDto.academicId || updateUserDto.currentYear) {
+                throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
+            }
+            if (updateUserDto.email) {
+                userData.email = updateUserDto.email;
+                emailToCheck = userData.email;
             }
         }
-        if (existingUser.role == (UserRolesEnum.ADMIN || UserRolesEnum.PROFESSOR) && (updateUserDto.academicId || updateUserDto.currentYear)) {
-            throw new BadRequestException('academicId or currentYear should not be provided for non-student roles.');
-        }
-
-
 
         if (updateUserDto.fullName) userData.fullName = updateUserDto.fullName;
-        if (updateUserDto.email) {
 
-            if (
-                existingUser &&
-                existingUser._id.toString() !== id.toString()
-            ) {
-                throw new BadRequestException(
-                    'This email is already used by another user.'
-                );
+        if (emailToCheck) {
+            const emailOwner = await this.userRepository.findOne({ filter: { email: emailToCheck } });
+            if (emailOwner && emailOwner._id.toString() != id.toString()) {
+                throw new BadRequestException('This email is already used by another user.');
             }
-
-            userData.email = updateUserDto.email;
         }
 
         await this.userRepository.update({
