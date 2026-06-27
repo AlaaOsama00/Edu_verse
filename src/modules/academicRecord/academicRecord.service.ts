@@ -110,9 +110,7 @@ export class AcademicRecordService {
   // داشبورد الطالب (البيانات الإحصائية المتجمعة)
   // ==========================================
   async getStudentDashboard(studentId: string) {
-    if (!Types.ObjectId.isValid(studentId)) {
-      throw new BadRequestException('Invalid student ID');
-    }
+ 
     const studentObjId = new Types.ObjectId(studentId);
 
     // ==========================================
@@ -175,35 +173,31 @@ export class AcademicRecordService {
     // ==========================================
     // 4. أعلى 5 درجات في كل المواد اللي اخدها في حياته (Top Courses Grades)
     // ==========================================
-    const topCoursesGrades = await this.enrollmentRepo.aggregate([
-      { $match: { studentId: studentObjId, isPassed: true, isTraining: false } },
+    const topCoursesGrades = await this.academicRecordRepository.aggregate([
+      // 1. Match records for this student
+      { $match: { studentId: studentObjId } },
 
-      // نجيب بيانات الكورس اللي أخدها
-      {
-        $lookup: {
-          from: 'courses', // ⚠️ تأكد من اسم الكولكشن
-          localField: 'courseId',
-          foreignField: '_id',
-          as: 'courseData',
-          // نأخذ الاسم والكود بس عشان الـ Dashboard يبقى خفيف
-          pipeline: [{ $project: { name: 1, code: 1, marksDistribution: 1 } }]
-        }
-      },
-      { $unwind: '$courseData' },
+      // 2. Unwind the courses array
+      { $unwind: '$courses' },
 
-      // نرتبهم تنازلياً حسب الـ Total Score
-      { $sort: { totalScore: -1 } },
+      // 3. Filter out failed courses (grade !== 'F')
+      { $match: { 'courses.grade': { $ne: 'F' } } },
 
-      // ناخد أعلى 5 بس عشان الـ UI
+      // 4. Sort by score in descending order
+      { $sort: { 'courses.score': -1 } },
+
+      // 5. Limit to top 5
       { $limit: 5 },
 
-      // شكل الداتا النهائي اللي يروح للفرونت
+      // 6. Project the final format expected by the frontend
       {
         $project: {
           _id: 0,
-          courseName: '$name',
-          courseCode: '$code',
-          percentage: '$totalScore' // الـ Total Score من 100 هو نسبته المئوية
+          courseId: '$courses.courseId',
+          courseName: '$courses.name',
+          courseCode: '$courses.code',
+          percentage: '$courses.score',
+          score: '$courses.score'
         }
       }
     ]);
