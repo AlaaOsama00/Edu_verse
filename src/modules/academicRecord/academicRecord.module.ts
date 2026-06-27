@@ -6,10 +6,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AcademicRecordController } from './academicRecord.controller';
 import { AcademicRecordService } from './academicRecord.service';
 import { AcademicRecordRepository } from '@models/academicRecord/academicRecord.repository';
+import { EnrollmentModule } from '../Enrollment/enrollment.module';
 
 
 @Module({
   imports: [
+    EnrollmentModule,
     // ⚠️ ضروري جداً: حقن كل الـ Schemas اللي الـ Service بيستخدمها
     MongooseModule.forFeature([
       { name: AcademicRecord.name, schema: AcademicRecordSchema },

@@ -3,6 +3,7 @@ import { GradeStatusEnum, SemesterEnum, SummerReasonEnum, AcademicYearEnum, User
 import { EnrollmentRepository, UserRepository, AcademicRecordRepository, SubmissionRepository, CourseRepository, CourseRecord, ClubMembershipRepository } from '@models/index';
 import { Types } from 'mongoose';
 import { gradeToPoints } from '@utils/helpers';
+import { EnrollmentService } from '../Enrollment/enrollment.service';
 
 
 @Injectable()
@@ -14,6 +15,7 @@ export class AcademicRecordService {
     private readonly submissionRepository: SubmissionRepository,
     private readonly courseRepository: CourseRepository,
     private readonly clubMembershipRepository: ClubMembershipRepository,
+    private readonly enrollmentService: EnrollmentService,
   ) { }
 
 
@@ -483,7 +485,8 @@ export class AcademicRecordService {
       total: students.length,
       successCount: results.filter(r => r.status === 'SUCCESS').length,
       failedCount: results.filter(r => r.status === 'FAILED').length,
-      results
+      results,
+      drops: await this.enrollmentService.dropAllEnrollments()
     };
   }
 }
