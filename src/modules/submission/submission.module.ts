@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Assessment, AssessmentSchema } from '@models/assessment/assessment.schema';
-import { AcademicRecord,AcademicRecordRepository,AcademicRecordSchema, AssessmentRepository, ClubMembership, ClubMembershipRepository, ClubMembershipSchema, Course, CourseRepository, CourseSchema, Enrollment, EnrollmentRepository, EnrollmentSchema, StudyPlan, StudyPlanRepository, StudyPlanSchema, Submission, SubmissionRepository, SubmissionSchema, User, UserRepository, UserSchema } from '@models/index';
+import { AcademicRecord, AcademicRecordSchema, AssessmentRepository, ClubMembership, ClubMembershipRepository, ClubMembershipSchema, Course, CourseRepository, CourseSchema, Enrollment, EnrollmentRepository, EnrollmentSchema, StudyPlan, StudyPlanRepository, StudyPlanSchema, Submission, SubmissionRepository, SubmissionSchema, User, UserRepository, UserSchema } from '@models/index';
 import { JwtService } from '@nestjs/jwt';
-import { AcademicRecordService } from '../academicRecord/academicRecord.service';
+import { AcademicRecordModule } from '../academicRecord/academicRecord.module';
+import { EnrollmentModule } from '../Enrollment/enrollment.module';
 import { SubmissionService } from './submission.service';
 import { SubmissionController } from './submission.controller';
-import { EnrollmentService } from '../Enrollment/enrollment.service';
 
 @Module({
   imports: [
@@ -16,11 +16,12 @@ import { EnrollmentService } from '../Enrollment/enrollment.service';
       { name: ClubMembership.name, schema: ClubMembershipSchema },
       { name: Enrollment.name, schema: EnrollmentSchema },
       { name: User.name, schema: UserSchema },
-      {name:Course.name,schema:CourseSchema},
-      {name:AcademicRecord.name,schema:AcademicRecordSchema},
-      {name:StudyPlan.name,schema:StudyPlanSchema}
+      { name: Course.name, schema: CourseSchema },
+      { name: AcademicRecord.name, schema: AcademicRecordSchema },
+      { name: StudyPlan.name, schema: StudyPlanSchema },
     ]),
-
+    AcademicRecordModule,
+    EnrollmentModule,
   ],
   controllers: [SubmissionController],
   providers: [
@@ -31,9 +32,6 @@ import { EnrollmentService } from '../Enrollment/enrollment.service';
     CourseRepository,
     JwtService,
     UserRepository,
-    AcademicRecordService,
-    AcademicRecordRepository,
-    EnrollmentService,
     StudyPlanRepository,
     ClubMembershipRepository,
   ],

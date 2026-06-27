@@ -52,5 +52,6 @@ import { EnrollmentService } from './enrollment.service';
     AssessmentRepository,
     SubmissionRepository,
   ],
+  exports: [EnrollmentService],
 })
 export class EnrollmentModule {}
