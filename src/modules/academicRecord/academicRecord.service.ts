@@ -30,6 +30,9 @@ export class AcademicRecordService {
     academicYear?: string,
     semester?: SemesterEnum,
   ) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Invalid student ID');
+    }
     const studentObjId = new Types.ObjectId(studentId);
 
     // فلترة على مستوى الـ Record نفسه لو اليوزر حدد سنة معينة
@@ -77,6 +80,9 @@ export class AcademicRecordService {
   // هيكون عنده بالفعل records لسنة 1 وسنة 2 بس، وده اللي هيترجع تلقائياً
   // ==========================================
   async getGpaHistory(studentId: string) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Invalid student ID');
+    }
     const studentObjId = new Types.ObjectId(studentId);
 
     const records = await this.academicRecordRepository.find({
@@ -102,6 +108,9 @@ export class AcademicRecordService {
   // داشبورد الطالب (البيانات الإحصائية المتجمعة)
   // ==========================================
   async getStudentDashboard(studentId: string) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Invalid student ID');
+    }
     const studentObjId = new Types.ObjectId(studentId);
 
     // ==========================================
@@ -261,6 +270,9 @@ export class AcademicRecordService {
   }
 
   async evaluateStudentStatus(studentId: string, semester?: SemesterEnum) {
+    if (!Types.ObjectId.isValid(studentId)) {
+      throw new BadRequestException('Invalid student ID');
+    }
     const studentObjId = new Types.ObjectId(studentId);
 
     // 1. Fetch the student profile

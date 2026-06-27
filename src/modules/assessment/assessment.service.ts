@@ -101,6 +101,9 @@ export class AssessmentService {
   }
 
   async deleteAssignment(professorId: string, assessmentId: string) {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID');
+    }
     // 1. نتأكد إن الأسايمنت موجود أصلاً
     const assignment = await this.assessmentRepo.findById(new Types.ObjectId(assessmentId));
 
@@ -147,7 +150,7 @@ export class AssessmentService {
     });
     const courseIds = enrollments.map(e => e.courseId);
 
-    if (courseIds.length === 0) return []; // لو مفيش مواد، رجع فاضي
+    if (courseIds.length == 0) return []; // لو مفيش مواد، رجع فاضي
 
     // 2. نستخدم Aggregate في الريبو عشان نعمل Join للكورس والترتيب
     const pipeline = [
@@ -200,6 +203,9 @@ export class AssessmentService {
   // جلب كل التقييمات الخاصة بكورس معين
   // ==========================================
   async getCourseAssessments(courseId: string) {
+    if (!Types.ObjectId.isValid(courseId)) {
+      throw new BadRequestException('Invalid course ID');
+    }
     const assessments = await this.assessmentRepo.find(
       { courseId: new Types.ObjectId(courseId) },
       undefined,
@@ -219,6 +225,9 @@ export class AssessmentService {
   // جلب تقييم معين بالـ ID
   // ==========================================
   async getAssignmentById(professorId: string, assessmentId: string) {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID');
+    }
     const assignment = await this.assessmentRepo.findById(new Types.ObjectId(assessmentId));
 
     if (!assignment) {
@@ -243,13 +252,16 @@ export class AssessmentService {
     dto: UpdateAssignmentDto,
     file?: Express.Multer.File,
   ) {
+    if (!Types.ObjectId.isValid(assessmentId)) {
+      throw new BadRequestException('Invalid assessment ID');
+    }
     const assignment = await this.assessmentRepo.findById(new Types.ObjectId(assessmentId));
 
     if (!assignment) {
       throw new NotFoundException('Assignment not found');
     }
 
-    if (assignment.createdBy.toString() !== professorId) {
+    if (assignment.createdBy.toString() != professorId) {
       throw new ForbiddenException('You are not allowed to update this assignment');
     }
 

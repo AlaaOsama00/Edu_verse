@@ -130,15 +130,22 @@ export class AuthService {
   }
   // To Do Ask about headers and refresh token
   async refreshToken(token: string) {
-    const payload = this.tokenService.verify({
-      token,
-      options: { secret: process.env.JWT_REFRESH_SECRET }
-    })
-    const user = await this.userRepository.findOne({ filter: { id: new Types.ObjectId(payload._id) } })
-    if (!user) {
-      throw new UnauthorizedException('Invalid token')
+    if (!token) {
+      throw new UnauthorizedException('Refresh token is required');
     }
-    return this.tokenService.generateAuthTokens(user);
+    try {
+      const payload = this.tokenService.verify({
+        token,
+        options: { secret: process.env.JWT_REFRESH_SECRET }
+      });
+      const user = await this.userRepository.findOne({ filter: { _id: payload._id } });
+      if (!user) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      return this.tokenService.generateAuthTokens(user);
+    } catch (err) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 
   async forgotPassword(email: string) {

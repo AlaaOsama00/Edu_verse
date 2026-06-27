@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { EnrollmentStatusEnum, SemesterEnum, SummerReasonEnum } from '@utils/enum';
-import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository, AcademicRecordRepository } from '@models/index';
+import { EnrollmentRepository, CourseRepository, StudyPlanRepository, UserRepository, AcademicRecordRepository, AssessmentRepository, SubmissionRepository } from '@models/index';
 import { AddCourseDto } from '../Enrollment/dto/add-course-dto';
 
 
@@ -18,6 +18,8 @@ export class EnrollmentService {
     private readonly enrollmentRepository: EnrollmentRepository,
     private readonly userRepository: UserRepository,
     private readonly academicRecordRepository: AcademicRecordRepository,
+    private readonly assessmentRepository: AssessmentRepository,
+    private readonly submissionRepository: SubmissionRepository,
   ) { }
 
   // ==========================================
@@ -296,22 +298,19 @@ export class EnrollmentService {
 
 
 
-  async dropStudentEnrollments(studentId: string) {
-    const studentObjId = new Types.ObjectId(studentId);
-    const result = await this.enrollmentRepository.deleteMany({ filter: { studentId: studentObjId } });
-    return {
-      success: true,
-      message: `Successfully dropped ${result.deletedCount} enrollment records for student ${studentId}.`,
-      deletedCount: result.deletedCount
-    };
-  }
+
 
   async dropAllEnrollments() {
-    const result = await this.enrollmentRepository.deleteMany({ filter: {} });
+    const enrollmentResult = await this.enrollmentRepository.deleteMany({ filter: {} });
+    const assessmentResult = await this.assessmentRepository.deleteMany({ filter: {} });
+    const submissionResult = await this.submissionRepository.deleteMany({ filter: {} });
+    
     return {
       success: true,
-      message: `Successfully dropped all ${result.deletedCount} enrollment records from the collection.`,
-      deletedCount: result.deletedCount
+      message: `Successfully dropped all records: ${enrollmentResult.deletedCount} enrollments, ${assessmentResult.deletedCount} assessments, and ${submissionResult.deletedCount} submissions.`,
+      deletedEnrollmentsCount: enrollmentResult.deletedCount,
+      deletedAssessmentsCount: assessmentResult.deletedCount,
+      deletedSubmissionsCount: submissionResult.deletedCount
     };
   }
 }

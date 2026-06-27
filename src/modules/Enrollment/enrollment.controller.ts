@@ -58,13 +58,8 @@ export class EnrollmentController {
     };
   }
 
-  @Delete('student/:studentId')
-  @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يحذف بيانات التسجيل لطالب معين
-  async dropStudentEnrollments(@Param('studentId') studentId: string) {
-    return this.enrollmentService.dropStudentEnrollments(studentId);
-  }
 
-  @Delete('drop-all')
+
   @Auth(UserRolesEnum.ADMIN) // فقط الأدمن يقدر يحذف الكوليكشن بالكامل
   async dropAllEnrollments() {
     return this.enrollmentService.dropAllEnrollments();
